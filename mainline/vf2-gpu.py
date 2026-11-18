@@ -31,6 +31,82 @@ patch("drivers/pmdomain/starfive/jh71xx-pmu.c",
       "\t/* Vendor GPU bring-up: stop hardware events from powering domains off behind software. */\n"
       "\twritel(0, pmu->base + 0x08);\n")
 
+
+# --- Cache coherency: the JH7110 GPU doesn't snoop the CPU's L2, and the U74 cores
+# can't map memory uncached (no Svpbmt), so the write-combined mappings
+# drm/imagination relies on are really cached. Mark the GPU dma-noncoherent (so DMA
+# syncs use the SiFive ccache flush ops) and write back / invalidate all firmware
+# objects at every CPU<->firmware handoff, as StarFive's vendor DDK does.
+patch("drivers/gpu/drm/imagination/pvr_fw.h",
+      "#endif /* PVR_FW_H */",
+      "void pvr_fw_object_sync(struct pvr_device *pvr_dev, struct pvr_fw_object *fw_obj,\n"
+      "\t\t\tbool for_device);\n"
+      "void pvr_fw_sync_all_objs(struct pvr_device *pvr_dev, bool for_device);\n\n"
+      "#endif /* PVR_FW_H */")
+
+FW_HELPERS = """
+/* VisionFive 2 (JH7110): explicit cache maintenance for a non-coherent GPU. */
+void
+pvr_fw_object_sync(struct pvr_device *pvr_dev, struct pvr_fw_object *fw_obj, bool for_device)
+{
+	struct device *dev = from_pvr_device(pvr_dev)->dev;
+	struct drm_gem_shmem_object *shmem;
+
+	if (!fw_obj || device_get_dma_attr(dev) == DEV_DMA_COHERENT)
+		return;
+	shmem = shmem_gem_from_pvr_gem(fw_obj->gem);
+	if (!shmem->sgt)
+		return;
+	if (for_device)
+		dma_sync_sgtable_for_device(dev, shmem->sgt, DMA_BIDIRECTIONAL);
+	else
+		dma_sync_sgtable_for_cpu(dev, shmem->sgt, DMA_BIDIRECTIONAL);
+}
+
+void
+pvr_fw_sync_all_objs(struct pvr_device *pvr_dev, bool for_device)
+{
+	struct pvr_fw_object *fw_obj;
+
+	if (device_get_dma_attr(from_pvr_device(pvr_dev)->dev) == DEV_DMA_COHERENT)
+		return;
+	mutex_lock(&pvr_dev->fw_dev.fw_objs.lock);
+	list_for_each_entry(fw_obj, &pvr_dev->fw_dev.fw_objs.list, node)
+		pvr_fw_object_sync(pvr_dev, fw_obj, for_device);
+	mutex_unlock(&pvr_dev->fw_dev.fw_objs.lock);
+}
+"""
+p_fw = Path("drivers/gpu/drm/imagination/pvr_fw.c")
+t = p_fw.read_text()
+if "pvr_fw_sync_all_objs(struct pvr_device *pvr_dev, bool for_device)\n{" not in t:
+    t = t.replace("#include <linux/clk.h>\n", "#include <linux/clk.h>\n#include <linux/dma-mapping.h>\n#include <linux/property.h>\n", 1)
+    t = t.rstrip("\n") + "\n" + FW_HELPERS
+    p_fw.write_text(t)
+    print("vf2-gpu: added FW cache-sync helpers")
+
+# Boot: write everything back before starting the FW; invalidate while polling for it.
+patch("drivers/gpu/drm/imagination/pvr_fw.c",
+      "\twhile (ktime_to_ns(ktime_sub(deadline, ktime_get())) > 0) {\n\t\tif (READ_ONCE(fw_dev->fwif_sysinit->firmware_started))",
+      "\twhile (ktime_to_ns(ktime_sub(deadline, ktime_get())) > 0) {\n\t\tpvr_fw_object_sync(pvr_dev, fw_dev->mem.sysinit_obj, false);\n\t\tif (READ_ONCE(fw_dev->fwif_sysinit->firmware_started))")
+patch("drivers/gpu/drm/imagination/pvr_fw.c",
+      "\terr = pvr_fw_start(pvr_dev);",
+      "\tpvr_fw_sync_all_objs(pvr_dev, true);\n\terr = pvr_fw_start(pvr_dev);")
+# Every kick to the FW: write back all FW objects first.
+patch("drivers/gpu/drm/imagination/pvr_fw.c",
+      "pvr_fw_mts_schedule(struct pvr_device *pvr_dev, u32 val)\n{\n",
+      "pvr_fw_mts_schedule(struct pvr_device *pvr_dev, u32 val)\n{\n\tpvr_fw_sync_all_objs(pvr_dev, true);\n")
+# KCCB return slots are written by the FW: invalidate before each read.
+patch("drivers/gpu/drm/imagination/pvr_ccb.c",
+      "\tint ret = wait_event_timeout(pvr_dev->kccb.rtn_q, READ_ONCE(pvr_dev->kccb.rtn[slot_nr]) &",
+      "\tint ret = wait_event_timeout(pvr_dev->kccb.rtn_q,\n\t\t(pvr_fw_object_sync(pvr_dev, pvr_dev->kccb.rtn_obj, false),\n\t\t READ_ONCE(pvr_dev->kccb.rtn[slot_nr])) &")
+patch("drivers/gpu/drm/imagination/pvr_ccb.c",
+      "\tif (ret && rtn_out)\n\t\t*rtn_out = READ_ONCE(pvr_dev->kccb.rtn[slot_nr]);",
+      "\tif (ret && rtn_out) {\n\t\tpvr_fw_object_sync(pvr_dev, pvr_dev->kccb.rtn_obj, false);\n\t\t*rtn_out = READ_ONCE(pvr_dev->kccb.rtn[slot_nr]);\n\t}")
+# FW -> CPU messages, KCCB read offsets and job-completion UFOs: invalidate on every IRQ.
+patch("drivers/gpu/drm/imagination/pvr_device.c",
+      "\t\tif (READ_ONCE(pvr_dev->fw_dev.initialised)) {\n\t\t\tpvr_fwccb_process(pvr_dev);",
+      "\t\tif (READ_ONCE(pvr_dev->fw_dev.initialised)) {\n\t\t\tpvr_fw_sync_all_objs(pvr_dev, false);\n\t\t\tpvr_fwccb_process(pvr_dev);")
+
 dts = Path("arch/riscv/boot/dts/starfive/jh7110-starfive-visionfive-2-v1.3b.dts")
 node = """
 /* PowerVR BXE-4-32 for drm/imagination (firmware powervr/rogue_36.50.54.182_v1.fw). */
@@ -60,6 +136,8 @@ node = """
 			resets = <&syscrg JH7110_SYSRST_GPU_APB>,
 				 <&syscrg JH7110_SYSRST_GPU_DOMA>;
 			power-domains = <&pwrc JH7110_PD_GPUA>;
+			/* The GPU does not snoop the CPU caches. */
+			dma-noncoherent;
 		};
 	};
 };
