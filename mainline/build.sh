@@ -5,7 +5,11 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 TAG=${1:-v7.4-rc3}; OUT=$(mkdir -p "${2:-out}" && cd "${2:-out}" && pwd)
 export ARCH=riscv CROSS_COMPILE=${CROSS_COMPILE:-riscv64-linux-gnu-}
-[ -d linux ] || git clone -q --depth 1 --branch "$TAG" https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+# GitHub's mirror is far more reliable from CI runners; kernel.org is the fallback.
+if [ ! -d linux ]; then
+  git clone -q --depth 1 --branch "$TAG" https://github.com/torvalds/linux.git ||
+    git clone -q --depth 1 --branch "$TAG" https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+fi
 cd linux
 git -c user.name=build -c user.email=build@localhost am -q --3way "$HERE"/patches/*.mbox
 python3 "$HERE/vf2-gpu.py"
