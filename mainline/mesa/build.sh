@@ -60,7 +60,7 @@ llvm-config = '/usr/bin/llvm-config-15'
 INI
 step setup-native-build meson setup native-build mesa --native-file native.ini --prefix "$WORK/native" -Dbuildtype=release \
   -Dvulkan-drivers=imagination -Dgallium-drivers= -Dplatforms= -Dopengl=false -Dglx=disabled -Degl=disabled -Dgbm=disabled \
-  -Dmesa-clc=enabled -Dinstall-mesa-clc=true -Dprecomp-compiler=enabled -Dinstall-precomp-compiler=true \
+  -Dmesa-clc=enabled -Dmesa-clc-bundle-headers=enabled -Dinstall-mesa-clc=true -Dprecomp-compiler=enabled -Dinstall-precomp-compiler=true \
   -Dllvm=enabled -Dshared-llvm=enabled -Dvalgrind=disabled -Dlibunwind=disabled
 step ninja-native-build ninja -C native-build install
 export PATH=$WORK/native/bin:$PATH
