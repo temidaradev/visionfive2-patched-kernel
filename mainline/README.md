@@ -43,7 +43,19 @@ The installer:
 - keeps only one mainline build at a time, because `/boot` is a 100 MB FAT
   partition.
 
-To boot mainline, pick it from the U-Boot menu, which shows for 10 seconds.
+Without a serial console the U-Boot menu isn't visible, so boot it **once** with
+`boot-once.sh` (needs `u-boot-tools`):
+
+```sh
+sudo ARM=1 mainline/boot-once.sh mainline && sudo reboot
+```
+
+This installs `/boot/boot.scr`, which the vendor U-Boot runs before extlinux.
+If `/boot/boot-once` holds `1`, U-Boot overwrites it with `0` **before**
+loading the kernel, then boots the `mainline` entry directly with `booti`. It
+also patches the real RAM size into the DTB, as U-Boot's normal boot path does.
+Any later reset (crash, hang, power-cycle) boots the normal default again.
+U-Boot logs each step to `/boot/once-log.txt`.
 
 ## Build
 

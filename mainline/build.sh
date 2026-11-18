@@ -9,6 +9,7 @@ export ARCH=riscv CROSS_COMPILE=${CROSS_COMPILE:-riscv64-linux-gnu-}
 cd linux
 git -c user.name=build -c user.email=build@localhost am -q --3way "$HERE"/patches/*.mbox
 python3 "$HERE/vf2-gpu.py"
+git -c user.name=build -c user.email=build@localhost commit -qam "vf2: GPU device tree and power fixups"
 make -s defconfig
 scripts/kconfig/merge_config.sh -m -O . .config "$HERE/vf2-hdmi.config" >/dev/null
 make -s olddefconfig

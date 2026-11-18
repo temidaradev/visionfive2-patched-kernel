@@ -25,6 +25,12 @@ patch("drivers/gpu/drm/imagination/pvr_power.c",
       "reset = devm_reset_control_get_optional_exclusive(drm_dev->dev, NULL);",
       "reset = devm_reset_control_array_get_optional_exclusive(drm_dev->dev);")
 
+patch("drivers/pmdomain/starfive/jh71xx-pmu.c",
+      "\tpmu->base = devm_platform_ioremap_resource(pdev, 0);\n\tif (IS_ERR(pmu->base))\n\t\treturn PTR_ERR(pmu->base);\n",
+      "\tpmu->base = devm_platform_ioremap_resource(pdev, 0);\n\tif (IS_ERR(pmu->base))\n\t\treturn PTR_ERR(pmu->base);\n"
+      "\t/* Vendor GPU bring-up: stop hardware events from powering domains off behind software. */\n"
+      "\twritel(0, pmu->base + 0x08);\n")
+
 dts = Path("arch/riscv/boot/dts/starfive/jh7110-starfive-visionfive-2-v1.3b.dts")
 node = """
 /* PowerVR BXE-4-32 for drm/imagination (firmware powervr/rogue_36.50.54.182_v1.fw). */
@@ -39,6 +45,9 @@ node = """
 			 <&syscrg JH7110_SYSCLK_GPU_CORE>,
 			 <&syscrg JH7110_SYSCLK_NOC_BUS_GPU_AXI>;
 		power-domains = <&pwrc JH7110_PD_GPUA>;
+		/* The vendor driver's 594 MHz core clock (1.5 GHz speed bin). */
+		assigned-clocks = <&syscrg JH7110_SYSCLK_GPU_CORE>;
+		assigned-clock-rates = <594000000>;
 
 		gpu: gpu@18000000 {
 			compatible = "starfive,jh7110-gpu", "img,img-bxe-4-32", "img,img-rogue";
