@@ -12,8 +12,22 @@ drivers, and the copy in `patches/` is the one applied at build time.
 | Works | Not on mainline |
 |---|---|
 | HDMI with a framebuffer console (built in, so boot messages show on screen) | Raspberry Pi Touch Display 2 (DSI): use the 6.12 entry |
-| SD card root, Ethernet, USB via PCIe (all built in) | GPU acceleration: the JH7110's PowerVR GPU has no mainline DT node yet |
+| SD card root, Ethernet, USB via PCIe (all built in) | |
+| PowerVR BXE-4-32 GPU (experimental, see below) | |
 | kexec, for live test-boots of later kernels | |
+
+## GPU (experimental)
+
+The JH7110's PowerVR BXE-4-32 runs on the open `drm/imagination` driver:
+
+- `vf2-gpu.py` adds the GPU to the device tree. A `simple-pm-bus` parent turns
+  on the clocks the driver doesn't manage, and the driver takes both GPU resets.
+- The kernel is booted with `powervr.exp_hw_support=1`, because this core isn't
+  on the driver's fully-supported list yet.
+- The firmware, `rogue_36.50.54.182_v1.fw`, comes from Imagination's staging
+  repository (not in linux-firmware yet). `install.sh` installs it.
+- Userspace needs a recent Mesa with the `imagination-experimental` Vulkan
+  driver, which has this core. The board's vendor Mesa (22.3) is too old.
 
 ## Install (on the board)
 

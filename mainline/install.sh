@@ -25,6 +25,12 @@ cp "$SRC/boot/vmlinuz-$REL" "$SRC/boot/config-$REL" "$SRC/boot/System.map-$REL" 
 cp "$SRC/boot/$DTB" "/boot/mainline-$REL.dtb"
 rm -rf "/lib/modules/$REL" && cp -a "$SRC/lib/modules/$REL" /lib/modules/
 depmod "$REL"
+# Open-driver GPU firmware for the BXE-4-32 (Imagination's staging repo; not yet in linux-firmware).
+FW=/lib/firmware/powervr/rogue_36.50.54.182_v1.fw
+if [ ! -f "$FW" ]; then
+  mkdir -p /lib/firmware/powervr
+  curl -fsSL "https://gitlab.freedesktop.org/imagination/linux-firmware/-/raw/powervr/powervr/rogue_36.50.54.182_v1.fw" -o "$FW.new" && mv "$FW.new" "$FW" || echo "warning: GPU firmware download failed" >&2
+fi
 CONF=/boot/extlinux/extlinux.conf
 cp "$CONF" "$CONF.before-mainline"
 python3 - "$CONF" "$REL" <<'PY'
@@ -38,7 +44,7 @@ label mainline
 	menu label Mainline Linux {rel} (HDMI; no Touch Display)
 	linux /vmlinuz-{rel}
 	fdt /mainline-{rel}.dtb
-	append root=/dev/mmcblk1p4 rw rootwait console=tty0 console=ttyS0,115200 earlycon selinux=0
+	append root=/dev/mmcblk1p4 rw rootwait console=tty0 console=ttyS0,115200 earlycon selinux=0 powervr.exp_hw_support=1
 """
 open(path, "w").write(s)
 PY

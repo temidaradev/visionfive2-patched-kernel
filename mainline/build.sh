@@ -8,6 +8,7 @@ export ARCH=riscv CROSS_COMPILE=${CROSS_COMPILE:-riscv64-linux-gnu-}
 [ -d linux ] || git clone -q --depth 1 --branch "$TAG" https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 cd linux
 git -c user.name=build -c user.email=build@localhost am -q --3way "$HERE"/patches/*.mbox
+python3 "$HERE/vf2-gpu.py"
 make -s defconfig
 scripts/kconfig/merge_config.sh -m -O . .config "$HERE/vf2-hdmi.config" >/dev/null
 make -s olddefconfig
