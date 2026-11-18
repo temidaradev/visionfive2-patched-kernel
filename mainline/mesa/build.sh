@@ -72,6 +72,7 @@ command -v mesa_clc vtn_bindgen2 pco_clc
 PCLIBDIR=$SYSROOT/usr/lib/riscv64-linux-gnu/pkgconfig:$SYSROOT/usr/share/pkgconfig:$SYSROOT/usr/lib/pkgconfig
 cat > "$WORK/pkg-config-riscv64" <<PC
 #!/bin/sh
+unset PKG_CONFIG_PATH
 PKG_CONFIG_SYSROOT_DIR='$SYSROOT' PKG_CONFIG_LIBDIR='$PCLIBDIR' exec pkg-config "\$@"
 PC
 chmod +x "$WORK/pkg-config-riscv64"
