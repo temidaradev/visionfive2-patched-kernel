@@ -16,38 +16,35 @@ drivers, and the copy in `patches/` is the one applied at build time.
 | | GPU acceleration: blocked by CPU cache coherency, see below |
 | kexec, for live test-boots of later kernels | |
 
-## GPU: blocked on the JH7110 (no uncached CPU mappings)
+## GPU: firmware and Vulkan work; rendering hangs (Mesa doesn't support this core yet)
 
-The kernel side gets as far as it can:
+Status on the PowerVR BXE-4-32 (BVNC 36.50.54.182), November 2026:
 
-- `vf2-gpu.py` adds the GPU to the device tree, with a `simple-pm-bus` for the
-  extra clocks and both GPU resets.
-- The core clock runs at the vendor's 594 MHz, and the PMU hardware turn-off
-  events are cleared.
-- Imagination's open firmware `rogue_36.50.54.182_v1.fw` loads with
-  `powervr.exp_hw_support=1`.
+| Layer | Status |
+|---|---|
+| Kernel driver + firmware boot | ✅ boots on the first try (`vf2-gpu.py`) |
+| Vulkan device (`mesa/`) | ✅ `vulkaninfo`: *PowerVR B-Series BXE-4-32 MC1*, Imagination open-source Mesa driver, Vulkan 1.2 |
+| OpenGL ES via Zink | ✅ creates contexts: *zink Vulkan 1.2 (PowerVR B-Series BXE-4-32 MC1)*, OpenGL ES 3.1 |
+| Rendering | ❌ the first geometry job hangs the GPU ("Guilty lockup, Data Master=Geometry") |
 
-But the firmware **fails to boot almost every time** ("Firmware failed to boot",
--110). It succeeded once in five boots.
+What `vf2-gpu.py` changes in the kernel driver for the JH7110:
 
-Things ruled out on hardware:
+- adds the GPU to the device tree (simple-pm-bus for the extra clocks, both resets, 594 MHz core clock) and clears the PMU hardware turn-off events, as the vendor DDK does;
+- marks the GPU `dma-noncoherent`. The U74 cores can't map memory uncached (no Svpbmt), so every write-combined mapping drm/imagination relies on is really cached. It therefore writes back and invalidates firmware objects at each CPU<->firmware handoff and syncs all user BOs at job submit;
+- **flushes the MIPS firmware page tables.** They were written through a cached vmap and never flushed, which is why the firmware almost never booted before.
 
-- memory above 4 GB (`mem=3G`);
-- the display controller (held back with `initcall_blacklist=vs_dc_platform_driver_init`);
-- clock rates (PLL2 1188 MHz, `gpu_core` 594 MHz);
-- CMA on vs. off.
+Why rendering hangs: Mesa marks only 36.52.104.182 and 36.53.104.796 as working
+(`pvr_device_is_conformant`). It has a device description for 36.50.54.182 but
+no working rendering on it yet. A hang on the first geometry job is typical of
+command streams that are slightly wrong for an untested core. Fixing it needs
+work in Mesa's imagination driver, comparing against the vendor DDK.
 
-The likely cause is cache coherency. `drm/imagination` and Mesa share memory with
-the GPU firmware through write-combined mappings, which assumes the CPU can map
-memory uncached. The JH7110's U74 cores have no `Svpbmt` (and no T-Head MAE),
-so those mappings stay **cached**. CPU writes sit in L1/L2 and the firmware reads
-stale data, which fits the random results. StarFive's vendor DDK works around it
-with explicit L2 flushes (`do_sifive_l2_flush64_range`).
+Also not done yet: after a GPU hang, the hard-reset path doesn't run the cache
+syncs, so the firmware doesn't come back (device lost until reboot).
 
-Making it work would need explicit cache maintenance in the kernel driver
-(firmware/CCB writes) and in Mesa (user BO writes). Until then, use the vendor 6.12
-kernel for GPU acceleration. `mesa/` (PowerVR Vulkan plus Zink build) is kept
-for when the kernel side works.
+Use the vendor 6.12 kernel for GPU acceleration. On mainline, run `vulkaninfo`
+or `pvr-gl <app>` to test new Mesa builds. The user must be in the `render` and
+`video` groups.
 
 ## Install (on the board)
 

@@ -20,7 +20,10 @@ rm -rf /opt/mesa-pvr.new && mv "$T/opt/mesa-pvr" /opt/mesa-pvr.new
 rm -rf /opt/mesa-pvr && mv /opt/mesa-pvr.new /opt/mesa-pvr
 ICD=$(ls /opt/mesa-pvr/share/vulkan/icd.d/powervr_mesa_icd*.json | head -1)
 
-# OpenGL/GLES through Zink on PowerVR, per application: pvr-gl <command>.
+# OpenGL/GLES on PowerVR, per application: pvr-gl <command>. The display controller
+# (verisilicon) has no Mesa driver, so Mesa uses kmsro, which renders with Zink on
+# the PowerVR Vulkan device. Do not force MESA_LOADER_DRIVER_OVERRIDE=zink: that puts
+# Zink on the display node, where there is no Vulkan device, and GBM fails.
 cat > /usr/local/bin/pvr-gl <<WRAP
 #!/bin/sh
 # Run a program with Mesa's Zink (OpenGL on Vulkan) over the PowerVR driver (mainline only).
@@ -28,7 +31,6 @@ case "\$(uname -r)" in *-starfive) echo "pvr-gl: needs a mainline kernel" >&2; e
 export LD_LIBRARY_PATH=/opt/mesa-pvr/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}
 export LIBGL_DRIVERS_PATH=/opt/mesa-pvr/lib/dri
 export GBM_BACKENDS_PATH=/opt/mesa-pvr/lib/gbm
-export MESA_LOADER_DRIVER_OVERRIDE=zink
 export VK_ICD_FILENAMES=$ICD
 export PVR_I_WANT_A_BROKEN_VULKAN_DRIVER=1
 exec "\$@"
