@@ -25,7 +25,7 @@ if [ ! -d "$SYSROOT/usr/include" ]; then
   # Ubuntu Archive Automatic Signing Key (2018), which signs jammy.
   KR=$WORK/ubuntu-archive.asc
   curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xF6ECB3762474EDA9D21B7022871920D1991BC93C' -o "$KR"
-  $SUDO mmdebstrap --keyring="$KR" --variant=extract --architectures=riscv64 --components=main,universe \
+  $SUDO mmdebstrap --mode=chrootless --keyring="$KR" --variant=extract --architectures=riscv64 --components=main,universe \
     --include="$PKGS" jammy "$SYSROOT" http://ports.ubuntu.com/ubuntu-ports
   $SUDO chown -R "$(id -u):$(id -g)" "$SYSROOT"
   # Absolute symlinks would point at the build host's root.
