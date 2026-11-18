@@ -1,0 +1,14 @@
+#!/bin/sh
+# One-shot trial boots of a test kernel (vf2.trial=1 on the command line): reboot back
+# to the default kernel if no HDMI display comes up. The one-shot flag is already
+# cleared by U-Boot, so any reboot returns to the normal default entry.
+TIMEOUT=${1:-120}
+i=0
+while [ "$i" -lt "$TIMEOUT" ]; do
+  for s in /sys/class/drm/card*-HDMI-A-*/status; do
+    [ -r "$s" ] && [ "$(cat "$s")" = connected ] && { echo "vf2-trial: HDMI connected"; exit 0; }
+  done
+  sleep 5; i=$((i + 5))
+done
+echo "vf2-trial: no HDMI display after ${TIMEOUT}s, rebooting to the default kernel"
+systemctl reboot

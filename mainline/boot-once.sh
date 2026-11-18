@@ -22,9 +22,14 @@ import re, sys
 src, entry, dst = sys.argv[1:]
 block = re.search(rf"^label {re.escape(entry)}\n((?:\t.*\n?)*)", open(src).read(), re.M).group(1)
 get = lambda k: re.search(rf"^\t{k} (.*)$", block, re.M).group(1).strip()
-open(dst, "w").write(f"once_kernel={get('linux')}\nonce_fdt={get('fdt')}\nonce_bootargs={get('append')}\n")
+open(dst, "w").write(f"once_kernel={get('linux')}\nonce_fdt={get('fdt')}\nonce_bootargs={get('append')} vf2.trial=1 panic=10 systemd.watchdog_sec=60\n")
 PY
 rm -f /boot/once-log.txt
+# Trial guard: falls back to the default kernel if HDMI doesn't come up (vf2.trial=1 only).
+install -m 755 "$HERE/trial/vf2-trial-guard" /usr/local/sbin/vf2-trial-guard
+install -m 644 "$HERE/trial/vf2-trial-guard.service" /etc/systemd/system/vf2-trial-guard.service
+systemctl daemon-reload
+systemctl enable -q vf2-trial-guard.service
 printf 0 > /boot/boot-once.clear
 printf "${ARM:-1}" > /boot/boot-once
 sync

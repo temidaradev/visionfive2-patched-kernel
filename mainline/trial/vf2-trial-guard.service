@@ -1,0 +1,11 @@
+[Unit]
+Description=Trial boot guard: fall back to the default kernel if HDMI doesn't come up
+ConditionKernelCommandLine=vf2.trial=1
+After=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vf2-trial-guard 120
+
+[Install]
+WantedBy=multi-user.target

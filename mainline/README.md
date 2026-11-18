@@ -57,6 +57,17 @@ also patches the real RAM size into the DTB, as U-Boot's normal boot path does.
 Any later reset (crash, hang, power-cycle) boots the normal default again.
 U-Boot logs each step to `/boot/once-log.txt`.
 
+A trial boot can't leave you without a screen. The one-shot command line adds
+`vf2.trial=1 panic=10 systemd.watchdog_sec=60`:
+
+- `vf2-trial-guard.service` reboots if no HDMI display is connected after
+  2 minutes;
+- a kernel panic reboots after 10 seconds;
+- a full hang is reset by the JH7110 hardware watchdog.
+
+Each of these returns to the default kernel, because the one-shot flag was
+already cleared.
+
 ## Build
 
 GitHub Actions builds every change under `mainline/` and publishes a
