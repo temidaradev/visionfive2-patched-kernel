@@ -13,21 +13,41 @@ drivers, and the copy in `patches/` is the one applied at build time.
 |---|---|
 | HDMI with a framebuffer console (built in, so boot messages show on screen) | Raspberry Pi Touch Display 2 (DSI): use the 6.12 entry |
 | SD card root, Ethernet, USB via PCIe (all built in) | |
-| PowerVR BXE-4-32 GPU (experimental, see below) | |
+| | GPU acceleration: blocked by CPU cache coherency, see below |
 | kexec, for live test-boots of later kernels | |
 
-## GPU (experimental)
+## GPU: blocked on the JH7110 (no uncached CPU mappings)
 
-The JH7110's PowerVR BXE-4-32 runs on the open `drm/imagination` driver:
+The kernel side gets as far as it can:
 
-- `vf2-gpu.py` adds the GPU to the device tree. A `simple-pm-bus` parent turns
-  on the clocks the driver doesn't manage, and the driver takes both GPU resets.
-- The kernel is booted with `powervr.exp_hw_support=1`, because this core isn't
-  on the driver's fully-supported list yet.
-- The firmware, `rogue_36.50.54.182_v1.fw`, comes from Imagination's staging
-  repository (not in linux-firmware yet). `install.sh` installs it.
-- Userspace needs a recent Mesa with the `imagination-experimental` Vulkan
-  driver, which has this core. The board's vendor Mesa (22.3) is too old.
+- `vf2-gpu.py` adds the GPU to the device tree, with a `simple-pm-bus` for the
+  extra clocks and both GPU resets.
+- The core clock runs at the vendor's 594 MHz, and the PMU hardware turn-off
+  events are cleared.
+- Imagination's open firmware `rogue_36.50.54.182_v1.fw` loads with
+  `powervr.exp_hw_support=1`.
+
+But the firmware **fails to boot almost every time** ("Firmware failed to boot",
+-110). It succeeded once in five boots.
+
+Things ruled out on hardware:
+
+- memory above 4 GB (`mem=3G`);
+- the display controller (held back with `initcall_blacklist=vs_dc_platform_driver_init`);
+- clock rates (PLL2 1188 MHz, `gpu_core` 594 MHz);
+- CMA on vs. off.
+
+The likely cause is cache coherency. `drm/imagination` and Mesa share memory with
+the GPU firmware through write-combined mappings, which assumes the CPU can map
+memory uncached. The JH7110's U74 cores have no `Svpbmt` (and no T-Head MAE),
+so those mappings stay **cached**. CPU writes sit in L1/L2 and the firmware reads
+stale data, which fits the random results. StarFive's vendor DDK works around it
+with explicit L2 flushes (`do_sifive_l2_flush64_range`).
+
+Making it work would need explicit cache maintenance in the kernel driver
+(firmware/CCB writes) and in Mesa (user BO writes). Until then, use the vendor 6.12
+kernel for GPU acceleration. `mesa/` (PowerVR Vulkan plus Zink build) is kept
+for when the kernel side works.
 
 ## Install (on the board)
 
