@@ -49,13 +49,31 @@ export PATH=$WORK/native/bin:$PATH
 command -v mesa_clc vtn_bindgen2 pco_clc
 
 # --- stage 2: riscv64 drivers ---
+# Cross pkg-config: the sysroot prefix must only apply to riscv64 lookups, not to
+# build-machine tools like wayland-scanner.
+PCLIBDIR=$SYSROOT/usr/lib/riscv64-linux-gnu/pkgconfig:$SYSROOT/usr/share/pkgconfig:$SYSROOT/usr/lib/pkgconfig
+cat > "$WORK/pkg-config-riscv64" <<PC
+#!/bin/sh
+PKG_CONFIG_SYSROOT_DIR='$SYSROOT' PKG_CONFIG_LIBDIR='$PCLIBDIR' exec pkg-config "\$@"
+PC
+chmod +x "$WORK/pkg-config-riscv64"
+# Mesa requires the build machine's wayland-scanner to match the target libwayland.
+WLVER=$("$WORK/pkg-config-riscv64" --modversion wayland-client)
+if [ ! -x "$WORK/native/bin/wayland-scanner" ] || [ "$("$WORK/native/bin/wayland-scanner" --version 2>&1 | grep -oE '[0-9.]+$')" != "$WLVER" ]; then
+  rm -rf wl-src wl-build
+  git clone -q --depth 1 --branch "$WLVER" https://gitlab.freedesktop.org/wayland/wayland.git wl-src
+  meson setup wl-build wl-src --prefix "$WORK/native" --libdir lib -Dlibraries=false \
+    -Ddocumentation=false -Dtests=false -Ddtd_validation=false >/dev/null
+  ninja -C wl-build install >/dev/null
+fi
+"$WORK/native/bin/wayland-scanner" --version
 cat > cross.ini <<INI
 [binaries]
 c = ['riscv64-linux-gnu-gcc', '--sysroot=$SYSROOT']
 cpp = ['riscv64-linux-gnu-g++', '--sysroot=$SYSROOT']
 ar = 'riscv64-linux-gnu-ar'
 strip = 'riscv64-linux-gnu-strip'
-pkg-config = 'pkg-config'
+pkg-config = '$WORK/pkg-config-riscv64'
 [properties]
 sys_root = '$SYSROOT'
 pkg_config_libdir = ['$SYSROOT/usr/lib/riscv64-linux-gnu/pkgconfig', '$SYSROOT/usr/share/pkgconfig', '$SYSROOT/usr/lib/pkgconfig']
@@ -68,8 +86,8 @@ cpu_family = 'riscv64'
 cpu = 'riscv64'
 endian = 'little'
 INI
-export PKG_CONFIG_SYSROOT_DIR=$SYSROOT
 meson setup cross-build mesa --cross-file cross.ini --prefix "$PREFIX" --libdir lib -Dbuildtype=release \
+  -Dbuild.pkg_config_path="$WORK/native/lib/pkgconfig" \
   -Dvulkan-drivers=imagination -Dgallium-drivers=zink -Dplatforms=x11,wayland \
   -Dopengl=true -Dgles1=disabled -Dgles2=enabled -Degl=enabled -Dgbm=enabled -Dglx=dri -Dglvnd=disabled \
   -Dmesa-clc=system -Dprecomp-compiler=system -Dllvm=disabled -Dvalgrind=disabled -Dlibunwind=disabled \
