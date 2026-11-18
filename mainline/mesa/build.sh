@@ -18,7 +18,7 @@ git -C mesa fetch -q origin "$REF" && git -C mesa checkout -q FETCH_HEAD
 VERSION=$(cat mesa/VERSION)-$(git -C mesa rev-parse --short=10 HEAD)
 
 # --- riscv64 sysroot (extract only; no emulation needed) ---
-PKGS=libc6-dev,libdrm-dev,libwayland-dev,libx11-dev,libxext-dev,libxfixes-dev,libxcb1-dev,libxcb-dri3-dev,libxcb-present-dev,libxcb-sync-dev,libxcb-shm0-dev,libxcb-randr0-dev,libxcb-xfixes0-dev,libxcb-glx0-dev,libxcb-keysyms1-dev,libx11-xcb-dev,libxshmfence-dev,libxxf86vm-dev,libxrandr-dev,libexpat1-dev,zlib1g-dev,libzstd-dev,libudev-dev
+PKGS=libc6-dev,libdrm-dev,libwayland-dev,libwayland-egl-backend-dev,libx11-dev,libxext-dev,libxfixes-dev,libxcb1-dev,libxcb-dri3-dev,libxcb-present-dev,libxcb-sync-dev,libxcb-shm0-dev,libxcb-randr0-dev,libxcb-xfixes0-dev,libxcb-glx0-dev,libxcb-keysyms1-dev,libx11-xcb-dev,libxshmfence-dev,libxxf86vm-dev,libxrandr-dev,libexpat1-dev,zlib1g-dev,libzstd-dev,libudev-dev
 if [ ! -d "$SYSROOT/usr/include" ]; then
   sudo mmdebstrap --variant=extract --architectures=riscv64 --components=main,universe \
     --include="$PKGS" jammy "$SYSROOT" http://ports.ubuntu.com/ubuntu-ports
