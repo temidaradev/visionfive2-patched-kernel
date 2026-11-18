@@ -1,0 +1,44 @@
+From 482541b174c7e9f119be14cc6e9fd7721b308a27 Mon Sep 17 00:00:00 2001
+From: Michal Wilczynski <m.wilczynski@samsung.com>
+Date: Fri, 6 Nov 2026 14:58:48 +0100
+Subject: [PATCH 20/26] drm/bridge: inno-hdmi: Make the supported HDMI version
+ selectable
+
+inno_hdmi_probe() advertises HDMI 1.2 for every integration, which caps
+the TMDS character rate at 165 MHz. That matches the Rockchip variants,
+whose PHY configuration tables stop at 165 MHz, but not every SoC that
+uses this controller: the StarFive JH7110 supports HDMI 1.4b and drives
+pixel clocks up to 297 MHz for 3840x2160 and 4096x2160 at 30 Hz.
+
+Add a plat_data field for the supported version and keep HDMI 1.2 when
+it is left unset, so the Rockchip integrations are unchanged.
+
+Signed-off-by: Michal Wilczynski <m.wilczynski@samsung.com>
+---
+ include/drm/bridge/inno_hdmi.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/include/drm/bridge/inno_hdmi.h b/include/drm/bridge/inno_hdmi.h
+index cc5099d05..89a38f260 100644
+--- a/include/drm/bridge/inno_hdmi.h
++++ b/include/drm/bridge/inno_hdmi.h
+@@ -6,6 +6,7 @@
+ #ifndef __INNO_HDMI__
+ #define __INNO_HDMI__
+ 
++#include <linux/hdmi.h>
+ #include <linux/types.h>
+ 
+ #include <drm/drm_modes.h>
+@@ -34,6 +35,8 @@ struct inno_hdmi_plat_data {
+ 	struct inno_hdmi_phy_config *default_phy_config;
+ 	/* Clock the register interface from the TMDS clock, not the system clock. */
+ 	bool reg_clk_source_tmds;
++	/* HDMI version the integration supports; HDMI 1.2 if left unset. */
++	enum hdmi_version supported_hdmi_ver;
+ };
+ 
+ struct inno_hdmi *inno_hdmi_bind(struct platform_device *pdev,
+-- 
+2.56.0
+

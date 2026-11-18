@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Build mainline Linux for the VisionFive 2 v1.3B with the JH7110 HDMI series.
+# Build stable Linux 7.3 for the VisionFive 2 v1.3B with the JH7110 HDMI series backported.
 # Usage: mainline/build.sh [tag] [outdir]   (Linux host with gcc-riscv64-linux-gnu)
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-TAG=${1:-v7.4-rc3}; OUT=$(mkdir -p "${2:-out}" && cd "${2:-out}" && pwd)
+TAG=${1:-v7.3.5}; OUT=$(mkdir -p "${2:-out}" && cd "${2:-out}" && pwd)
 export ARCH=riscv CROSS_COMPILE=${CROSS_COMPILE:-riscv64-linux-gnu-}
-# GitHub's mirror is far more reliable from CI runners; kernel.org is the fallback.
+# Stable tags live in the stable tree; GitHub's mirror is more reliable from CI runners.
 if [ ! -d linux ]; then
-  git clone -q --depth 1 --branch "$TAG" https://github.com/torvalds/linux.git ||
-    git clone -q --depth 1 --branch "$TAG" https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+  git clone -q --depth 1 --branch "$TAG" https://github.com/gregkh/linux.git ||
+    git clone -q --depth 1 --branch "$TAG" https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
 fi
 cd linux
-git -c user.name=build -c user.email=build@localhost am -q --3way "$HERE"/patches/*.mbox
+git -c user.name=build -c user.email=build@localhost am -q "$HERE"/patches/*.patch
 python3 "$HERE/vf2-gpu.py"
 git -c user.name=build -c user.email=build@localhost commit -qam "vf2: GPU device tree and power fixups"
 make -s defconfig
