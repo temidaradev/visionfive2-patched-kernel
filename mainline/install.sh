@@ -19,11 +19,18 @@ tar --no-same-owner -xzf "$T/k.tar.gz" -C "$T"
 SRC=$(find "$T" -mindepth 1 -maxdepth 1 -type d -name 'linux-*' | head -1)
 REL=${SRC##*/linux-}
 DTB=jh7110-starfive-visionfive-2-v1.3b.dtb
-# /boot is a 100 MB FAT partition shared with the vendor kernel; keep one mainline build.
-rm -f /boot/vmlinuz-*-vf2 /boot/mainline-*.dtb
-cp "$SRC/boot/vmlinuz-$REL" "$SRC/boot/config-$REL" "$SRC/boot/System.map-$REL" /boot/
+# /boot is a 100 MB FAT partition shared with the vendor kernel: keep exactly one
+# mainline build there, and only what U-Boot needs (kernel + DTB).
+for f in /boot/vmlinuz-*-vf2* /boot/config-*-vf2* /boot/System.map-*-vf2* /boot/mainline-*.dtb; do
+  [ -e "$f" ] && rm -f "$f"
+done
+for d in /lib/modules/*-vf2*; do
+  [ -d "$d" ] && [ "${d##*/}" != "$REL" ] && rm -rf "$d"
+done
+cp "$SRC/boot/vmlinuz-$REL" /boot/
 cp "$SRC/boot/$DTB" "/boot/mainline-$REL.dtb"
 rm -rf "/lib/modules/$REL" && cp -a "$SRC/lib/modules/$REL" /lib/modules/
+cp "$SRC/boot/config-$REL" "$SRC/boot/System.map-$REL" "/lib/modules/$REL/"
 depmod "$REL"
 # Open-driver GPU firmware for the BXE-4-32 (Imagination's staging repo; not yet in linux-firmware).
 FW=/lib/firmware/powervr/rogue_36.50.54.182_v1.fw
