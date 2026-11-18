@@ -1,14 +1,24 @@
 #!/bin/sh
-# One-shot trial boots of a test kernel (vf2.trial=1 on the command line): reboot back
-# to the default kernel if no HDMI display comes up. The one-shot flag is already
-# cleared by U-Boot, so any reboot returns to the normal default entry.
+# Boot guard for mainline kernels booted by /boot.scr (vf2.trial=1 one-shot tests,
+# vf2.default=1 default boots). A boot is good when HDMI shows a picture, or when no
+# monitor is plugged in (headless). Good default boots reset the U-Boot try counter;
+# bad boots reboot, which ends up on the vendor 6.12 kernel (one-shot flag already
+# cleared, or the try counter runs out).
 TIMEOUT=${1:-120}
+good() {
+  echo "vf2-guard: $1"
+  grep -qw vf2.default=1 /proc/cmdline && printf 0 > /boot/boot-tries && sync
+  exit 0
+}
 i=0
 while [ "$i" -lt "$TIMEOUT" ]; do
-  for s in /sys/class/drm/card*-HDMI-A-*/status; do
-    [ -r "$s" ] && [ "$(cat "$s")" = connected ] && { echo "vf2-trial: HDMI connected"; exit 0; }
+  for c in /sys/class/drm/card*-HDMI-A-*; do
+    [ -e "$c/status" ] || continue
+    st=$(cat "$c/status"); en=$(cat "$c/enabled" 2>/dev/null)
+    [ "$st" = connected ] && [ "$en" = enabled ] && good "HDMI is showing a picture"
+    [ "$st" = disconnected ] && [ "$i" -ge 30 ] && good "no monitor connected (headless)"
   done
   sleep 5; i=$((i + 5))
 done
-echo "vf2-trial: no HDMI display after ${TIMEOUT}s, rebooting to the default kernel"
+echo "vf2-guard: no HDMI picture after ${TIMEOUT}s, rebooting"
 systemctl reboot

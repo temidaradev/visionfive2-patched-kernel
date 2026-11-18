@@ -1,7 +1,9 @@
 [Unit]
-Description=Trial boot guard: fall back to the default kernel if HDMI doesn't come up
-ConditionKernelCommandLine=vf2.trial=1
+Description=Mainline boot guard: confirm a good boot or fall back to the vendor kernel
+ConditionKernelCommandLine=|vf2.trial=1
+ConditionKernelCommandLine=|vf2.default=1
 After=systemd-udev-settle.service
+RequiresMountsFor=/boot
 
 [Service]
 Type=oneshot

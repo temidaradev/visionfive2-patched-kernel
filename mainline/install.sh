@@ -55,5 +55,7 @@ label mainline
 """
 open(path, "w").write(s)
 PY
+# Keep a mainline default (vf2-default) pointing at the kernel just installed.
+if [ -f /boot/default.env ] && command -v vf2-default >/dev/null; then vf2-default mainline >/dev/null; fi
 sync
 echo "installed $REL as boot entry 'mainline' (default unchanged: $(grep -m1 '^default' $CONF))"
