@@ -155,6 +155,34 @@ patch("drivers/gpu/drm/imagination/pvr_job.c",
       "\t}\n\n"
       "\tdrm_exec_init(&exec, DRM_EXEC_INTERRUPTIBLE_WAIT | DRM_EXEC_IGNORE_DUPLICATES, 0);\n")
 
+
+# --- MIPS firmware page tables: the CPU writes them through a vmap that is really
+# cached here, and the GPU's MIPS MMU reads them from RAM. Flush them before every
+# MMU flush request; without this the firmware almost never boots.
+p_mips = Path("drivers/gpu/drm/imagination/pvr_vm_mips.c")
+t = p_mips.read_text()
+if "pvr_vm_mips_sync_pt(" not in t:
+    helper = (
+        "/* VisionFive 2 (JH7110): the PT vmap is cached on non-coherent systems; write it back. */\n"
+        "static void\n"
+        "pvr_vm_mips_sync_pt(struct pvr_device *pvr_dev, struct pvr_fw_mips_data *mips_data)\n"
+        "{\n"
+        "\tstruct device *dev = from_pvr_device(pvr_dev)->dev;\n\n"
+        "\tfor (u32 page_nr = 0; page_nr < PVR_MIPS_PT_PAGE_COUNT; page_nr++)\n"
+        "\t\tdma_sync_single_for_device(dev, mips_data->pt_dma_addr[page_nr],\n"
+        "\t\t\t\t\t   PAGE_SIZE, DMA_TO_DEVICE);\n"
+        "}\n\n")
+    anchor = "/**\n * pvr_vm_mips_map()"
+    if t.count(anchor) != 1:
+        sys.exit("vf2-gpu: pvr_vm_mips.c: map anchor not found, upstream changed")
+    t = t.replace(anchor, helper + anchor, 1)
+    old = "\tpvr_mmu_flush_request_all(pvr_dev);\n"
+    if t.count(old) != 3:
+        sys.exit(f"vf2-gpu: pvr_vm_mips.c: expected 3 MMU flush requests, found {t.count(old)}")
+    t = t.replace(old, "\tpvr_vm_mips_sync_pt(pvr_dev, mips_data);\n" + old)
+    p_mips.write_text(t)
+    print("vf2-gpu: patched drivers/gpu/drm/imagination/pvr_vm_mips.c (MIPS PT sync)")
+
 dts = Path("arch/riscv/boot/dts/starfive/jh7110-starfive-visionfive-2-v1.3b.dts")
 node = """
 /* PowerVR BXE-4-32 for drm/imagination (firmware powervr/rogue_36.50.54.182_v1.fw). */
