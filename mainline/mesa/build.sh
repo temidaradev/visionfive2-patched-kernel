@@ -22,8 +22,10 @@ VERSION=$(cat mesa/VERSION)-$(git -C mesa rev-parse --short=10 HEAD)
 # --- riscv64 sysroot (extract only; no emulation needed) ---
 PKGS=libc6-dev,libdrm-dev,libwayland-dev,libwayland-egl-backend-dev,libx11-dev,libxext-dev,libxfixes-dev,libxcb1-dev,libxcb-dri3-dev,libxcb-present-dev,libxcb-sync-dev,libxcb-shm0-dev,libxcb-randr0-dev,libxcb-xfixes0-dev,libxcb-glx0-dev,libxcb-keysyms1-dev,libx11-xcb-dev,libxshmfence-dev,libxxf86vm-dev,libxrandr-dev,libexpat1-dev,zlib1g-dev,libzstd-dev,libudev-dev
 if [ ! -d "$SYSROOT/usr/include" ]; then
-  KR=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-  $SUDO mmdebstrap ${KR:+$( [ -f $KR ] && echo --keyring=$KR )} --variant=extract --architectures=riscv64 --components=main,universe \
+  # Ubuntu Archive Automatic Signing Key (2018), which signs jammy.
+  KR=$WORK/ubuntu-archive.asc
+  curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xF6ECB3762474EDA9D21B7022871920D1991BC93C' -o "$KR"
+  $SUDO mmdebstrap --keyring="$KR" --variant=extract --architectures=riscv64 --components=main,universe \
     --include="$PKGS" jammy "$SYSROOT" http://ports.ubuntu.com/ubuntu-ports
   $SUDO chown -R "$(id -u):$(id -g)" "$SYSROOT"
   # Absolute symlinks would point at the build host's root.

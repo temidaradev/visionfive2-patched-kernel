@@ -26,9 +26,9 @@ jobs:
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-            git ca-certificates curl gh mmdebstrap ubuntu-keyring \
+            git ca-certificates curl gh mmdebstrap \
             gcc g++ gcc-riscv64-linux-gnu g++-riscv64-linux-gnu binutils-riscv64-linux-gnu \
-            llvm-15-dev libclang-15-dev libclang-common-15-dev libclc-15-dev libclc-15 libllvmspirvlib-15-dev libpolly-15-dev clang-15 \
+            llvm-15-dev libclang-15-dev libclang-common-15-dev libclc-15-dev libclc-15 libllvmspirvlib-15-dev clang-15 \
             spirv-tools glslang-tools bison flex ninja-build pkg-config python3-pip \
             libdrm-dev zlib1g-dev libzstd-dev libexpat1-dev wayland-protocols libwayland-bin
           pip install --break-system-packages -q "meson>=1.7" mako pyyaml ply packaging
