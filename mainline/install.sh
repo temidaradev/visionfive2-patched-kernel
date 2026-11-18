@@ -1,0 +1,46 @@
+#!/bin/sh
+# Install a mainline kernel build from GitHub releases as an extra U-Boot boot entry.
+# The current default entry is left untouched; pick "mainline" from the U-Boot menu.
+# Usage: install.sh [release-tag|path/to/linux-*.tar.gz]   (default: newest mainline-* release)
+set -eu
+REPO=${VF2_KERNEL_REPO:-temidaradev/visionfive2-patched-kernel}
+[ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+if [ -f "${1:-}" ]; then
+  cp "$1" "$T/k.tar.gz"
+else
+  TAG=${1:-$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" | python3 -c 'import json,sys; print(next(r["tag_name"] for r in json.load(sys.stdin) if r["tag_name"].startswith("mainline-")))')}
+  REL=${TAG#mainline-}
+  URL=https://github.com/$REPO/releases/download/$TAG/linux-$REL.tar.gz
+  curl -fsSL "$URL" -o "$T/k.tar.gz"
+  curl -fsSL "$URL.sha256" | awk '{print $1"  '"$T"'/k.tar.gz"}' | sha256sum -c - >/dev/null
+fi
+tar --no-same-owner -xzf "$T/k.tar.gz" -C "$T"
+SRC=$(find "$T" -mindepth 1 -maxdepth 1 -type d -name 'linux-*' | head -1)
+REL=${SRC##*/linux-}
+DTB=jh7110-starfive-visionfive-2-v1.3b.dtb
+# /boot is a 100 MB FAT partition shared with the vendor kernel; keep one mainline build.
+rm -f /boot/vmlinuz-*-vf2 /boot/mainline-*.dtb
+cp "$SRC/boot/vmlinuz-$REL" "$SRC/boot/config-$REL" "$SRC/boot/System.map-$REL" /boot/
+cp "$SRC/boot/$DTB" "/boot/mainline-$REL.dtb"
+rm -rf "/lib/modules/$REL" && cp -a "$SRC/lib/modules/$REL" /lib/modules/
+depmod "$REL"
+CONF=/boot/extlinux/extlinux.conf
+cp "$CONF" "$CONF.before-mainline"
+python3 - "$CONF" "$REL" <<'PY'
+import re, sys
+path, rel = sys.argv[1], sys.argv[2]
+s = open(path).read()
+s = re.sub(r"\nlabel mainline\n(?:\t.*\n)*", "\n", s)
+s = s.rstrip("\n") + f"""
+
+label mainline
+	menu label Mainline Linux {rel} (HDMI; no Touch Display)
+	linux /vmlinuz-{rel}
+	fdt /mainline-{rel}.dtb
+	append root=/dev/mmcblk1p4 rw rootwait console=tty0 console=ttyS0,115200 earlycon selinux=0
+"""
+open(path, "w").write(s)
+PY
+sync
+echo "installed $REL as boot entry 'mainline' (default unchanged: $(grep -m1 '^default' $CONF))"

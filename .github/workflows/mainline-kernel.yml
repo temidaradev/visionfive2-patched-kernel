@@ -1,0 +1,44 @@
+name: mainline kernel
+
+# Builds mainline Linux plus the JH7110 HDMI series for the VisionFive 2 and
+# publishes it as a "mainline-<release>" GitHub release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Linux tag to build"
+        default: "v7.4-rc3"
+  push:
+    branches: [main]
+    paths: ["mainline/**", ".github/workflows/mainline-kernel.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: mainline
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-riscv64-linux-gnu flex bison bc libssl-dev libelf-dev cpio kmod dwarves
+      - name: Build
+        run: mainline/build.sh "${{ inputs.tag || 'v7.4-rc3' }}" dist
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rel=$(cat dist/release)
+          notes="Mainline Linux $rel for the VisionFive 2 v1.3B: arch/riscv defconfig + mainline/vf2-hdmi.config + the JH7110 display series (HDMI). The Touch Display 2 is not supported on this kernel.
+
+          Install it as an extra boot entry (the default entry is left unchanged):
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/mainline/install.sh | sudo sh
+          \`\`\`"
+          gh release delete "mainline-$rel" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "mainline-$rel" --title "Mainline $rel (VisionFive 2, HDMI)" --notes "$notes" dist/linux-*.tar.gz dist/linux-*.tar.gz.sha256
