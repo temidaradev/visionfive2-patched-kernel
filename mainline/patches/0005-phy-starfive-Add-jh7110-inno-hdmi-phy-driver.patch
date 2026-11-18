@@ -1,7 +1,7 @@
 From cdce95c1dad4b05afc6fca8e6d25790c719cb426 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:53:02 +0100
-Subject: [PATCH 05/26] phy: starfive: Add jh7110-inno-hdmi-phy driver
+Subject: [PATCH 05/27] phy: starfive: Add jh7110-inno-hdmi-phy driver
 
 Add the HDMI PHY driver for the StarFive JH7110.
 

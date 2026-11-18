@@ -1,7 +1,7 @@
 From e0d5757c1416672f71f31b10addaa52399f59c0e Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:52 +0100
-Subject: [PATCH 24/26] riscv: dts: starfive: jh7110: Update DT for display
+Subject: [PATCH 24/27] riscv: dts: starfive: jh7110: Update DT for display
  subsystem
 
 Activate the display subsystem by describing the video output subsystem,

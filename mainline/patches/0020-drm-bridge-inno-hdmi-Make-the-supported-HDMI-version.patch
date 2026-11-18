@@ -1,7 +1,7 @@
 From 482541b174c7e9f119be14cc6e9fd7721b308a27 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:48 +0100
-Subject: [PATCH 20/26] drm/bridge: inno-hdmi: Make the supported HDMI version
+Subject: [PATCH 20/27] drm/bridge: inno-hdmi: Make the supported HDMI version
  selectable
 
 inno_hdmi_probe() advertises HDMI 1.2 for every integration, which caps

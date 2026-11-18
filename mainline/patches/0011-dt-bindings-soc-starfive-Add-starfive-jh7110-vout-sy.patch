@@ -1,7 +1,7 @@
 From 8f0bfd4dd7e51e6bcff17443e12f49dad57eba35 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:39 +0100
-Subject: [PATCH 11/26] dt-bindings: soc: starfive: Add
+Subject: [PATCH 11/27] dt-bindings: soc: starfive: Add
  starfive,jh7110-vout-syscon
 
 The video output subsystem has its own system controller, documented as

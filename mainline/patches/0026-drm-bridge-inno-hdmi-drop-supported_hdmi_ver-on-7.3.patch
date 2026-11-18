@@ -1,7 +1,7 @@
 From 2f1fedf0508c38b75f5f767e12d023c1044f4b65 Mon Sep 17 00:00:00 2001
 From: temidaradev <temidaradev@proton.me>
 Date: Wed, 18 Nov 2026 23:45:41 +0300
-Subject: [PATCH 26/26] drm/bridge: inno-hdmi: drop supported_hdmi_ver on 7.3
+Subject: [PATCH 26/27] drm/bridge: inno-hdmi: drop supported_hdmi_ver on 7.3
 
 The DRM bridge supported_hdmi_ver field and enum hdmi_version only exist
 from 7.4; 7.3 doesn't select the HDMI version, so remove it here.

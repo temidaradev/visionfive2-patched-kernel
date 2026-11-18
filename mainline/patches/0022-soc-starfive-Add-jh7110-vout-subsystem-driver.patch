@@ -1,7 +1,7 @@
 From aa41b27d473b5bd0b9b7b94c4d8683dd1d7f358b Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:50 +0100
-Subject: [PATCH 22/26] soc: starfive: Add jh7110-vout-subsystem driver
+Subject: [PATCH 22/27] soc: starfive: Add jh7110-vout-subsystem driver
 
 Nothing in the video output subsystem can reach its own registers until
 the NoC display bus clock and reset are up and PD_VOUT is powered, and

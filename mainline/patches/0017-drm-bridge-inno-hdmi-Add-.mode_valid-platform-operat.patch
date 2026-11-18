@@ -1,7 +1,7 @@
 From 73b5e334ed3811d2d283de94cb0d0faa212551ff Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:45 +0100
-Subject: [PATCH 17/26] drm/bridge: inno-hdmi: Add .mode_valid platform
+Subject: [PATCH 17/27] drm/bridge: inno-hdmi: Add .mode_valid platform
  operation
 
 inno_hdmi_bridge_mode_valid() validates the pixel clock against

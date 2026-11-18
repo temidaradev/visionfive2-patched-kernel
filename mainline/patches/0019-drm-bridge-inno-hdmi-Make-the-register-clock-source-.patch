@@ -1,7 +1,7 @@
 From 31adcdfd380fbfaa155c0673d361cd65ea14ca35 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:47 +0100
-Subject: [PATCH 19/26] drm/bridge: inno-hdmi: Make the register clock source
+Subject: [PATCH 19/27] drm/bridge: inno-hdmi: Make the register clock source
  selectable
 
 inno_hdmi_init_hw() drives the register interface from the system clock

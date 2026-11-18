@@ -1,7 +1,7 @@
 From 61417779986326f97f2dcfb695c83ab22e644fb1 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:36 +0100
-Subject: [PATCH 08/26] drm/bridge: inno-hdmi: Don't dereference a NULL
+Subject: [PATCH 08/27] drm/bridge: inno-hdmi: Don't dereference a NULL
  drm_device on hotplug
 
 inno_hdmi_irq() passes hdmi->bridge.dev to drm_helper_hpd_irq_event(),

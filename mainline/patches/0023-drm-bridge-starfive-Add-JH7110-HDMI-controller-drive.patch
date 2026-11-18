@@ -1,7 +1,7 @@
 From fde564ab1f2b0d60a2e603d4698ce711cfa37b30 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:51 +0100
-Subject: [PATCH 23/26] drm/bridge: starfive: Add JH7110 HDMI controller driver
+Subject: [PATCH 23/27] drm/bridge: starfive: Add JH7110 HDMI controller driver
 
 Add the HDMI controller (bridge) driver for the StarFive JH7110.
 

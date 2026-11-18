@@ -1,7 +1,7 @@
 From aaffea5d122de0a06d5499d87c46a003db2d7e04 Mon Sep 17 00:00:00 2001
 From: temidaradev <temidaradev@proton.me>
 Date: Wed, 18 Nov 2026 23:44:24 +0300
-Subject: [PATCH 01/26] soc: starfive: add the drivers/soc/starfive directory
+Subject: [PATCH 01/27] soc: starfive: add the drivers/soc/starfive directory
  (7.4 backport)
 
 7.4 introduced drivers/soc/starfive (with a socinfo driver). The JH7110

@@ -1,7 +1,7 @@
 From 81991c6293041fe033c5f9f774c721356ccd46d8 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:43 +0100
-Subject: [PATCH 15/26] drm/bridge: inno-hdmi: Use a regmap for register access
+Subject: [PATCH 15/27] drm/bridge: inno-hdmi: Use a regmap for register access
 
 On some SoCs the HDMI controller does not own its register window. The
 StarFive JH7110 documents one 64 KB block, u0_hdmitx, that holds both

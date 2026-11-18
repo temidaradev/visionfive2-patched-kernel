@@ -1,7 +1,7 @@
 From f28c012349c591217fec539eec765ef7f3fe4769 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:35 +0100
-Subject: [PATCH 07/26] drm/bridge: inno-hdmi: fix swapped HSYNC and VSYNC
+Subject: [PATCH 07/27] drm/bridge: inno-hdmi: fix swapped HSYNC and VSYNC
  polarity
 
 v_HSYNC_POLARITY() and v_VSYNC_POLARITY() write the wrong bits: the

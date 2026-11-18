@@ -1,7 +1,7 @@
 From e238bf410383937169097da0a43bfd6c08be1955 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:40 +0100
-Subject: [PATCH 12/26] dt-bindings: display: verisilicon: Add
+Subject: [PATCH 12/27] dt-bindings: display: verisilicon: Add
  starfive,jh7110-dc8200
 
 The JH7110 embeds a DC8200. The binding requires an SoC specific

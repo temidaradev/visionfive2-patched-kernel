@@ -1,7 +1,7 @@
 From dd9414caeb22a779a3bca26b2e6353ef3cdbfc82 Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:58:38 +0100
-Subject: [PATCH 10/26] dt-bindings: display: starfive: Add
+Subject: [PATCH 10/27] dt-bindings: display: starfive: Add
  starfive,jh7110-hdmi-subsystem
 
 Add the dt-binding for the StarFive JH7110 HDMI subsystem.

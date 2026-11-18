@@ -1,7 +1,7 @@
 From 15c4bd14b39472588f8cb2ac035d21dcb184890d Mon Sep 17 00:00:00 2001
 From: Michal Wilczynski <m.wilczynski@samsung.com>
 Date: Fri, 6 Nov 2026 14:53:00 +0100
-Subject: [PATCH 03/26] phy: Add common Innosilicon HDMI PHY helpers
+Subject: [PATCH 03/27] phy: Add common Innosilicon HDMI PHY helpers
 
 The Innosilicon HDMI PHY IP is used by several SoCs. They differ in
 where the PHY register block sits in the register space and in which
