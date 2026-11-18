@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Build Mesa (PowerVR Vulkan + Zink) for the VisionFive 2 on mainline Linux.
-# Stage 1 builds Mesa's host shader compilers natively (needs LLVM 18/clang/libclc);
-# stage 2 cross-compiles the drivers for riscv64 against an Ubuntu 22.04 sysroot
-# (glibc 2.35, older than the board's 2.36), without LLVM on the target.
-# Usage: mainline/mesa/build.sh [mesa-ref] [outdir]   (Ubuntu 24.04 x86-64 host)
+# Runs in a Debian bookworm container: its riscv64 cross toolchain is gcc 12 with
+# glibc 2.36, exactly the board's libc and libstdc++. Stage 1 builds Mesa's host
+# shader compilers natively (LLVM 15/clang/libclc); stage 2 cross-compiles the
+# drivers against an Ubuntu 22.04 riscv64 sysroot for the other libraries.
+# Usage: mainline/mesa/build.sh [mesa-ref] [outdir]   (debian:bookworm x86-64)
 set -euo pipefail
+SUDO=$(command -v sudo || true)
 REF=${1:-main}
 OUT=$(mkdir -p "${2:-out}" && cd "${2:-out}" && pwd)
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -20,9 +22,10 @@ VERSION=$(cat mesa/VERSION)-$(git -C mesa rev-parse --short=10 HEAD)
 # --- riscv64 sysroot (extract only; no emulation needed) ---
 PKGS=libc6-dev,libdrm-dev,libwayland-dev,libwayland-egl-backend-dev,libx11-dev,libxext-dev,libxfixes-dev,libxcb1-dev,libxcb-dri3-dev,libxcb-present-dev,libxcb-sync-dev,libxcb-shm0-dev,libxcb-randr0-dev,libxcb-xfixes0-dev,libxcb-glx0-dev,libxcb-keysyms1-dev,libx11-xcb-dev,libxshmfence-dev,libxxf86vm-dev,libxrandr-dev,libexpat1-dev,zlib1g-dev,libzstd-dev,libudev-dev
 if [ ! -d "$SYSROOT/usr/include" ]; then
-  sudo mmdebstrap --variant=extract --architectures=riscv64 --components=main,universe \
+  KR=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+  $SUDO mmdebstrap ${KR:+$( [ -f $KR ] && echo --keyring=$KR )} --variant=extract --architectures=riscv64 --components=main,universe \
     --include="$PKGS" jammy "$SYSROOT" http://ports.ubuntu.com/ubuntu-ports
-  sudo chown -R "$(id -u):$(id -g)" "$SYSROOT"
+  $SUDO chown -R "$(id -u):$(id -g)" "$SYSROOT"
   # Absolute symlinks would point at the build host's root.
   python3 - "$SYSROOT" <<'PY'
 import os, sys
@@ -38,7 +41,7 @@ fi
 # --- stage 1: host tools ---
 cat > native.ini <<INI
 [binaries]
-llvm-config = '/usr/bin/llvm-config-18'
+llvm-config = '/usr/bin/llvm-config-15'
 INI
 meson setup native-build mesa --native-file native.ini --prefix "$WORK/native" -Dbuildtype=release \
   -Dvulkan-drivers=imagination -Dgallium-drivers= -Dplatforms= -Dopengl=false -Dglx=disabled -Degl=disabled -Dgbm=disabled \
@@ -99,6 +102,9 @@ find "$WORK/stage$PREFIX" -name '*.so*' -type f -exec riscv64-linux-gnu-strip --
 maxglibc=$(find "$WORK/stage$PREFIX" -name '*.so*' -type f -exec riscv64-linux-gnu-objdump -T {} + 2>/dev/null | grep -oE 'GLIBC_2\.[0-9]+' | sort -uV | tail -1)
 echo "max glibc symbol: $maxglibc"
 [ "$(printf '%s\nGLIBC_2.36\n' "$maxglibc" | sort -V | tail -1)" = GLIBC_2.36 ]
+maxcxx=$(find "$WORK/stage$PREFIX" -name '*.so*' -type f -exec riscv64-linux-gnu-objdump -T {} + 2>/dev/null | grep -oE 'GLIBCXX_3\.4\.[0-9]+' | sort -uV | tail -1)
+echo "max libstdc++ symbol: ${maxcxx:-none}"
+[ -z "$maxcxx" ] || [ "$(printf '%s\nGLIBCXX_3.4.30\n' "$maxcxx" | sort -V | tail -1)" = GLIBCXX_3.4.30 ]
 NAME=mesa-pvr-$VERSION-riscv64
 tar -C "$WORK/stage" -czf "$OUT/$NAME.tar.gz" opt
 (cd "$OUT" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")

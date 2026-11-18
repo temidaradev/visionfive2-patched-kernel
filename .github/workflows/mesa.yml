@@ -18,32 +18,36 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    # bookworm's riscv64 cross toolchain matches the board: glibc 2.36, libstdc++ from gcc 12.
+    container: debian:bookworm
     timeout-minutes: 240
     steps:
+      - name: Install toolchain
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            git ca-certificates curl gh mmdebstrap ubuntu-keyring \
+            gcc g++ gcc-riscv64-linux-gnu g++-riscv64-linux-gnu binutils-riscv64-linux-gnu \
+            llvm-15-dev libclang-15-dev libclang-common-15-dev libclc-15-dev libclc-15 libllvmspirvlib-15-dev libpolly-15-dev clang-15 \
+            spirv-tools glslang-tools bison flex ninja-build pkg-config python3-pip \
+            libdrm-dev zlib1g-dev libzstd-dev libexpat1-dev wayland-protocols libwayland-bin
+          pip install --break-system-packages -q "meson>=1.7" mako pyyaml ply packaging
       - uses: actions/checkout@v4
         with:
           sparse-checkout: mainline/mesa
-      - name: Install toolchain
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq mmdebstrap gcc-riscv64-linux-gnu g++-riscv64-linux-gnu \
-            llvm-18-dev libclang-18-dev libclang-common-18-dev libclc-18-dev libllvmspirvlib-18-dev libpolly-18-dev \
-            spirv-tools glslang-tools bison flex ninja-build pkg-config python3-pip \
-            libdrm-dev zlib1g-dev libzstd-dev libexpat1-dev wayland-protocols libwayland-bin
-          pip install --user --break-system-packages "meson>=1.7" mako pyyaml ply packaging
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build
         run: mainline/mesa/build.sh "${{ inputs.ref || 'main' }}" dist
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           v=$(cat dist/version)
-          notes="Mesa $v for the VisionFive 2 PowerVR BXE-4-32 on mainline Linux: imagination Vulkan driver + Zink (OpenGL/GLES), prefix /opt/mesa-pvr, glibc >= 2.35.
+          notes="Mesa $v for the VisionFive 2 PowerVR BXE-4-32 on mainline Linux: imagination Vulkan driver + Zink (OpenGL/GLES), prefix /opt/mesa-pvr, built for glibc 2.36 / gcc 12 libstdc++.
 
           Install on the board (only active on mainline kernels; the vendor 6.12 kernel keeps its own Mesa):
           \`\`\`sh
           curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/mainline/mesa/install.sh | sudo sh
           \`\`\`"
-          gh release delete "mesa-$v" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "mesa-$v" --title "Mesa $v (PowerVR, VisionFive 2)" --notes "$notes" dist/mesa-pvr-*.tar.gz dist/mesa-pvr-*.tar.gz.sha256
+          gh release delete "mesa-$v" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "mesa-$v" -R "$GITHUB_REPOSITORY" --title "Mesa $v (PowerVR, VisionFive 2)" --notes "$notes" dist/mesa-pvr-*.tar.gz dist/mesa-pvr-*.tar.gz.sha256
