@@ -1,0 +1,49 @@
+name: mesa pvr
+
+# Builds Mesa (PowerVR Vulkan + Zink) for the VisionFive 2's GPU on mainline Linux
+# and publishes it as a "mesa-<version>" release. See mainline/mesa/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Mesa git ref (branch, tag or commit)"
+        default: "main"
+  push:
+    branches: [main]
+    paths: ["mainline/mesa/**", ".github/workflows/mesa.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: mainline/mesa
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mmdebstrap gcc-riscv64-linux-gnu g++-riscv64-linux-gnu \
+            llvm-18-dev libclang-18-dev libclang-common-18-dev libclc-18-dev libllvmspirvlib-18-dev libpolly-18-dev \
+            spirv-tools glslang-tools bison flex ninja-build pkg-config python3-pip \
+            libdrm-dev zlib1g-dev libzstd-dev libexpat1-dev wayland-protocols libwayland-bin
+          pip install --user --break-system-packages "meson>=1.7" mako pyyaml ply packaging
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build
+        run: mainline/mesa/build.sh "${{ inputs.ref || 'main' }}" dist
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(cat dist/version)
+          notes="Mesa $v for the VisionFive 2 PowerVR BXE-4-32 on mainline Linux: imagination Vulkan driver + Zink (OpenGL/GLES), prefix /opt/mesa-pvr, glibc >= 2.35.
+
+          Install on the board (only active on mainline kernels; the vendor 6.12 kernel keeps its own Mesa):
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/mainline/mesa/install.sh | sudo sh
+          \`\`\`"
+          gh release delete "mesa-$v" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "mesa-$v" --title "Mesa $v (PowerVR, VisionFive 2)" --notes "$notes" dist/mesa-pvr-*.tar.gz dist/mesa-pvr-*.tar.gz.sha256

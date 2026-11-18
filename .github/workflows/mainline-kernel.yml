@@ -10,7 +10,7 @@ on:
         default: "v7.4-rc3"
   push:
     branches: [main]
-    paths: ["mainline/**", ".github/workflows/mainline-kernel.yml"]
+    paths: ["mainline/**", "!mainline/mesa/**", ".github/workflows/mainline-kernel.yml"]
 
 permissions:
   contents: write
