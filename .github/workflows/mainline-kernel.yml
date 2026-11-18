@@ -7,7 +7,7 @@ on:
     inputs:
       tag:
         description: "Linux tag to build"
-        default: "v7.3.5"
+        default: "v7.4-rc3"
   push:
     branches: [main]
     paths: ["mainline/**", "!mainline/mesa/**", ".github/workflows/mainline-kernel.yml"]
@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq gcc-riscv64-linux-gnu flex bison bc libssl-dev libelf-dev cpio kmod dwarves
       - name: Build
-        run: mainline/build.sh "${{ inputs.tag || 'v7.3.5' }}" dist
+        run: mainline/build.sh "${{ inputs.tag || 'v7.4-rc3' }}" dist
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
