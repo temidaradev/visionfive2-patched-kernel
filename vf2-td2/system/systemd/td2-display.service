@@ -1,0 +1,15 @@
+[Unit]
+Description=VisionFive 2 Touch Display 2 display and touch drivers
+After=local-fs.target systemd-udev-settle.service td2-restore-boot-default.service
+Before=display-manager.service
+Wants=systemd-udev-settle.service
+ConditionKernelCommandLine=initcall_blacklist=vs_drm_init,cdns_dsi_platform_driver_init
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/td2-display-start
+RemainAfterExit=yes
+TimeoutStartSec=45
+
+[Install]
+WantedBy=graphical.target

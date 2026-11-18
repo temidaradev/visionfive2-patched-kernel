@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0;; esac
+. /usr/share/initramfs-tools/hook-functions
+copy_file firmware /lib/firmware/rgx.fw.36.50.54.182
+copy_file firmware /lib/firmware/rgx.sh.36.50.54.182

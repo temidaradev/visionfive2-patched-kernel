@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+test "$(uname -r)" = 6.12.5-starfive
+grep -q 'initcall_blacklist=vs_drm_init,cdns_dsi_platform_driver_init' /proc/cmdline
+modules=/usr/local/lib/td2/6.12.5-starfive
+test ! -d /sys/bus/platform/drivers/cdns-dsi
+test ! -d /sys/bus/platform/drivers/starfive
+# The stock panel may already be loaded by initramfs, but has no DSI host.
+if test -d /sys/module/panel_ilitek_ili9881c; then
+    /sbin/modprobe -r panel_ilitek_ili9881c
+fi
+/sbin/insmod "$modules/panel-ilitek-ili9881c.ko"
+/sbin/insmod "$modules/td2_dsi.ko"
+test -L /sys/bus/mipi-dsi/devices/295d0000.mipi.0/driver
+/sbin/insmod "$modules/td2_drm.ko"
+# The stock Goodix driver expects an IRQ unavailable on the Pi ribbon.
+if test -L /sys/bus/i2c/devices/2-005d/driver; then
+    printf '%s' 2-005d > /sys/bus/i2c/drivers/Goodix-TS/unbind
+fi
+/sbin/insmod "$modules/td2_touch.ko"
+test "$(basename "$(readlink /sys/bus/i2c/devices/2-005d/driver)")" = td2-goodix-poll
+udevadm settle

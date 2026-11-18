@@ -1,0 +1,13 @@
+[Unit]
+Description=Restore normal boot default before manual display module test
+After=local-fs.target
+Before=display-manager.service
+RequiresMountsFor=/boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/td2-restore-boot-default
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

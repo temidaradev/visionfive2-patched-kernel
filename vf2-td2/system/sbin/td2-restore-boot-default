@@ -1,0 +1,8 @@
+#!/usr/bin/python3
+from pathlib import Path
+import os
+p = Path('/boot/extlinux/extlinux.conf')
+s = p.read_text()
+if 'default td2module\n' in s:
+    p.write_text(s.replace('default td2module\n', 'default td2\n', 1))
+    os.sync()

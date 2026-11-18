@@ -1,0 +1,5 @@
+# order matters: the panel must register before the regulator that releases
+# dc8200, otherwise the encoder binds before the panel exists.
+rpi-panel-v2-regulator
+panel-ilitek-ili9881c
+fixed

@@ -1,0 +1,31 @@
+--- /home/user/vf2-sdk/linux/drivers/gpu/drm/verisilicon/vs_dc.c	2026-09-15 18:07:39.598529319 +0000
++++ /home/user/td2-drm-module/vs_dc.c	2026-09-16 19:04:22.144179773 +0000
+@@ -723,19 +723,21 @@
+ 	display.v_active = mode->vdisplay;
+ 	display.v_total = mode->vtotal;
+ 
+-	if (crtc_state->encoder_type == DRM_MODE_ENCODER_DSI){
+-		display.v_sync_start = mode->vsync_start + 1;
+-		display.v_sync_end = mode->vsync_end - 1;
+-	}else{
+-		display.v_sync_start = mode->vsync_start;
+-		display.v_sync_end = mode->vsync_end;
+-	}
++	/* Preserve short sync pulses: shrinking a two-line pulse makes it zero. */
++	display.v_sync_start = mode->vsync_start;
++	display.v_sync_end = mode->vsync_end;
+ 
+ 	if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+ 		display.v_sync_polarity = true;
+ 	else
+ 		display.v_sync_polarity = false;
+ 
++	/* Cadence DPI consumes active-high sync, independent of panel mode flags. */
++	if (crtc_state->encoder_type == DRM_MODE_ENCODER_DSI) {
++		display.h_sync_polarity = true;
++		display.v_sync_polarity = true;
++	}
++
+ 	display.sync_mode = crtc_state->sync_mode;
+ 	display.bg_color = crtc_state->bg_color;
+ 

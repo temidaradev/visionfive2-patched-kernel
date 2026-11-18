@@ -1,0 +1,164 @@
+/*
+ * VisionFive 2 (JH7110) overlay: Raspberry Pi Touch Display 2, 5-inch (720x1280)
+ *
+ * Pipeline already present in the vendor DT:
+ *   dc8200 -> dsi-output encoder -> mipi@295d0000 port@1 (input)
+ *                                -> mipi@295d0000 port@0 (output) -> panel
+ * This overlay only replaces the panel end of that chain.
+ *
+ * Requires kernel modules:
+ *   panel-ilitek-ili9881c   (with the raspberrypi,dsi-5inch descriptor)
+ *   rpi-panel-v2-regulator  (panel MCU at i2c 0x45: reset gpio + backlight + touch rail)
+ *   goodix                  (GT911 touch, already built in the vendor kernel)
+ *
+ * Board I2C: i2c2 = i2c@10050000 is the bus wired to the DSI FPC connector.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "starfive,jh7110";
+
+	/* ---- 1. Disable the vendor panels that squat on the same bus/addresses ---- */
+
+	/* Seeed/RPi-v1 panel MCU is also at 0x45 and would collide. */
+	fragment@0 {
+		target-path = "/soc/i2c@10050000/seeed_plane_i2c@45";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/soc/i2c@10050000/panel_radxa@19";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	/* Vendor GT911 node uses host GPIOs that the Display 2 does not drive. */
+	fragment@2 {
+		target-path = "/soc/i2c@10050000/touchscreen@14";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	/* FT5406 belongs to the v1 display. */
+	fragment@3 {
+		target-path = "/soc/i2c@10050000/tinker_ft5406@38";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	/* ---- 2. Touch Display 2 devices on the DSI connector's I2C bus ---- */
+	fragment@4 {
+		target-path = "/soc/i2c@10050000";
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			td2_mcu: display_mcu@45 {
+				compatible = "raspberrypi,touchscreen-panel-regulator-v2",
+					      "raspberrypi,v2-touchscreen-panel-regulator";
+				reg = <0x45>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				status = "okay";
+			};
+
+			td2_touch: touchscreen@5d {
+				compatible = "goodix,gt911";
+				reg = <0x5d>;
+				AVDD28-supply = <&td2_touch_reg>;
+				irq-gpios = <&sysgpio 30 0>;
+				touchscreen-size-x = <720>;
+				touchscreen-size-y = <1280>;
+				touchscreen-x-mm = <62>;
+				touchscreen-y-mm = <110>;
+				status = "okay";
+			};
+		};
+	};
+
+	/* ---- 3. Touch rail, switched by GPIO 1 of the panel MCU ---- */
+	fragment@5 {
+		target-path = "/";
+		__overlay__ {
+			td2_touch_reg: td2-touch-regulator {
+				compatible = "regulator-fixed";
+				regulator-name = "td2_touch_reg";
+				gpio = <&td2_mcu 1 0>;		/* GPIO_ACTIVE_HIGH */
+				startup-delay-us = <50000>;
+				enable-active-high;
+			};
+		};
+	};
+
+	/* ---- 4. Point the DSI host's output endpoint at the new panel ---- *
+	 * U-Boot overlays cannot delete nodes, so endpoint@0's remote-endpoint
+	 * is overridden in place rather than removed.
+	 */
+	fragment@6 {
+		target-path = "/soc/mipi@295d0000/ports/port@0/endpoint@0";
+		__overlay__ {
+			remote-endpoint = <&td2_panel_in>;
+		};
+	};
+
+	/* ---- 5. The panel itself, as a DSI child on virtual channel 0 ---- */
+	fragment@7 {
+		target-path = "/soc/mipi@295d0000";
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			td2_panel: panel@0 {
+				compatible = "raspberrypi,dsi-5inch";
+				reg = <0>;
+				reset-gpio = <&td2_mcu 0 1>;	/* GPIO_ACTIVE_LOW */
+				backlight = <&td2_mcu>;
+				status = "okay";
+
+				port {
+					td2_panel_in: endpoint {
+						remote-endpoint = <&dsi0_output>;
+					};
+				};
+			};
+		};
+	};
+
+	/* ---- 6. Hold the display subsystem back until the panel driver exists ----
+	 * vs_simple_enc's encoder_bind discards -EPROBE_DEFER and initialises DRM
+	 * without the DSI output. It binds at ~6.2s; the initramfs cannot load a
+	 * module before ~6.8s, so the panel always misses the window.
+	 *
+	 * fw_devlink treats any "*-supply" phandle as a supplier dependency, even
+	 * one the driver never requests. Pointing dc8200 at a regulator-fixed --
+	 * whose driver is a module -- defers dc8200, and therefore the whole
+	 * display subsystem, until that module loads. Load the panel driver before
+	 * it and the encoder finds the panel on the first try.
+	 */
+	fragment@8 {
+		target-path = "/";
+		__overlay__ {
+			td2_seq_reg: td2-sequencing-regulator {
+				compatible = "regulator-fixed";
+				regulator-name = "td2_seq";
+				regulator-always-on;
+			};
+		};
+	};
+
+	fragment@9 {
+		target-path = "/soc/dc8200@29400000";
+		__overlay__ {
+			td2seq-supply = <&td2_seq_reg>;
+		};
+	};
+};
