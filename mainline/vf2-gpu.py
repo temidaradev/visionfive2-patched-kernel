@@ -107,6 +107,51 @@ patch("drivers/gpu/drm/imagination/pvr_device.c",
       "\t\tif (READ_ONCE(pvr_dev->fw_dev.initialised)) {\n\t\t\tpvr_fwccb_process(pvr_dev);",
       "\t\tif (READ_ONCE(pvr_dev->fw_dev.initialised)) {\n\t\t\tpvr_fw_sync_all_objs(pvr_dev, false);\n\t\t\tpvr_fwccb_process(pvr_dev);")
 
+
+# --- User buffers (command streams, vertex data, textures, results) are mapped
+# write-combined by Mesa, which is really cached here as well. Write back and
+# invalidate every BO in the job's VM at submit, before the GPU can see it.
+# Done before drm_exec takes the reservation locks to keep vm_ctx->lock ordering.
+patch("drivers/gpu/drm/imagination/pvr_vm.h",
+      "#endif /* PVR_VM_H */",
+      "void pvr_vm_sync_for_device(struct pvr_vm_context *vm_ctx);\n\n#endif /* PVR_VM_H */")
+VM_SYNC = """
+/* VisionFive 2 (JH7110): non-coherent GPU, see pvr_fw_sync_all_objs(). */
+void
+pvr_vm_sync_for_device(struct pvr_vm_context *vm_ctx)
+{
+	struct device *dev = from_pvr_device(vm_ctx->pvr_dev)->dev;
+	struct drm_gpuva *va;
+
+	if (device_get_dma_attr(dev) == DEV_DMA_COHERENT)
+		return;
+	mutex_lock(&vm_ctx->lock);
+	drm_gpuvm_for_each_va(va, &vm_ctx->gpuvm_mgr) {
+		struct drm_gem_shmem_object *shmem;
+
+		if (!va->gem.obj)
+			continue;
+		shmem = to_drm_gem_shmem_obj(va->gem.obj);
+		if (shmem->sgt)
+			dma_sync_sgtable_for_device(dev, shmem->sgt, DMA_BIDIRECTIONAL);
+	}
+	mutex_unlock(&vm_ctx->lock);
+}
+"""
+p_vm = Path("drivers/gpu/drm/imagination/pvr_vm.c")
+t = p_vm.read_text()
+if "pvr_vm_sync_for_device(struct pvr_vm_context *vm_ctx)\n{" not in t:
+    t = t.replace("#include <linux/bug.h>\n", "#include <linux/bug.h>\n#include <linux/dma-mapping.h>\n#include <linux/property.h>\n", 1)
+    p_vm.write_text(t.rstrip("\n") + "\n" + VM_SYNC)
+    print("vf2-gpu: added pvr_vm_sync_for_device")
+patch("drivers/gpu/drm/imagination/pvr_job.c",
+      "\tdrm_exec_init(&exec, DRM_EXEC_INTERRUPTIBLE_WAIT | DRM_EXEC_IGNORE_DUPLICATES, 0);\n",
+      "\tfor (u32 i = 0; i < args->jobs.count; i++) {\n"
+      "\t\tif (!i || job_data[i].job->ctx->vm_ctx != job_data[i - 1].job->ctx->vm_ctx)\n"
+      "\t\t\tpvr_vm_sync_for_device(job_data[i].job->ctx->vm_ctx);\n"
+      "\t}\n\n"
+      "\tdrm_exec_init(&exec, DRM_EXEC_INTERRUPTIBLE_WAIT | DRM_EXEC_IGNORE_DUPLICATES, 0);\n")
+
 dts = Path("arch/riscv/boot/dts/starfive/jh7110-starfive-visionfive-2-v1.3b.dts")
 node = """
 /* PowerVR BXE-4-32 for drm/imagination (firmware powervr/rogue_36.50.54.182_v1.fw). */
