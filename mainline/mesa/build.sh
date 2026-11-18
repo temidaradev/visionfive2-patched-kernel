@@ -6,6 +6,8 @@
 # drivers against an Ubuntu 22.04 riscv64 sysroot for the other libraries.
 # Usage: mainline/mesa/build.sh [mesa-ref] [outdir]   (debian:bookworm x86-64)
 set -euo pipefail
+# Run a build step quietly, showing its log only if it fails.
+step() { local name=$1; shift; "$@" > "$WORK/$name.log" 2>&1 || { echo "== $name failed:"; tail -80 "$WORK/$name.log"; exit 1; }; }
 SUDO=$(command -v sudo || true)
 REF=${1:-main}
 OUT=$(mkdir -p "${2:-out}" && cd "${2:-out}" && pwd)
@@ -45,11 +47,11 @@ cat > native.ini <<INI
 [binaries]
 llvm-config = '/usr/bin/llvm-config-15'
 INI
-meson setup native-build mesa --native-file native.ini --prefix "$WORK/native" -Dbuildtype=release \
+step setup-native-build meson setup native-build mesa --native-file native.ini --prefix "$WORK/native" -Dbuildtype=release \
   -Dvulkan-drivers=imagination -Dgallium-drivers= -Dplatforms= -Dopengl=false -Dglx=disabled -Degl=disabled -Dgbm=disabled \
   -Dmesa-clc=enabled -Dinstall-mesa-clc=true -Dprecomp-compiler=enabled -Dinstall-precomp-compiler=true \
-  -Dllvm=enabled -Dshared-llvm=enabled -Dvalgrind=disabled -Dlibunwind=disabled >/dev/null
-ninja -C native-build install >/dev/null
+  -Dllvm=enabled -Dshared-llvm=enabled -Dvalgrind=disabled -Dlibunwind=disabled
+step ninja-native-build ninja -C native-build install
 export PATH=$WORK/native/bin:$PATH
 command -v mesa_clc vtn_bindgen2 pco_clc
 
@@ -67,9 +69,9 @@ WLVER=$("$WORK/pkg-config-riscv64" --modversion wayland-client)
 if [ ! -x "$WORK/native/bin/wayland-scanner" ] || [ "$("$WORK/native/bin/wayland-scanner" --version 2>&1 | grep -oE '[0-9.]+$')" != "$WLVER" ]; then
   rm -rf wl-src wl-build
   git clone -q --depth 1 --branch "$WLVER" https://gitlab.freedesktop.org/wayland/wayland.git wl-src
-  meson setup wl-build wl-src --prefix "$WORK/native" --libdir lib -Dlibraries=false \
-    -Ddocumentation=false -Dtests=false -Ddtd_validation=false >/dev/null
-  ninja -C wl-build install >/dev/null
+  step setup-wl-build meson setup wl-build wl-src --prefix "$WORK/native" --libdir lib -Dlibraries=false \
+    -Ddocumentation=false -Dtests=false -Ddtd_validation=false
+  step ninja-wl-build ninja -C wl-build install
 fi
 "$WORK/native/bin/wayland-scanner" --version
 cat > cross.ini <<INI
@@ -91,14 +93,15 @@ cpu_family = 'riscv64'
 cpu = 'riscv64'
 endian = 'little'
 INI
-meson setup cross-build mesa --cross-file cross.ini --prefix "$PREFIX" --libdir lib -Dbuildtype=release \
+step setup-cross-build meson setup cross-build mesa --cross-file cross.ini --prefix "$PREFIX" --libdir lib -Dbuildtype=release \
   -Dbuild.pkg_config_path="$WORK/native/lib/pkgconfig" \
   -Dvulkan-drivers=imagination -Dgallium-drivers=zink -Dplatforms=x11,wayland \
   -Dopengl=true -Dgles1=disabled -Dgles2=enabled -Degl=enabled -Dgbm=enabled -Dglx=dri -Dglvnd=disabled \
   -Dmesa-clc=system -Dprecomp-compiler=system -Dllvm=disabled -Dvalgrind=disabled -Dlibunwind=disabled \
   -Dzstd=enabled -Dvulkan-layers= -Dtools=
-ninja -C cross-build >/dev/null
-rm -rf "$WORK/stage" && DESTDIR="$WORK/stage" ninja -C cross-build install >/dev/null
+step ninja-cross-build ninja -C cross-build
+rm -rf "$WORK/stage"
+DESTDIR="$WORK/stage" step install ninja -C cross-build install
 find "$WORK/stage$PREFIX" -name '*.so*' -type f -exec riscv64-linux-gnu-strip --strip-unneeded {} + 2>/dev/null || true
 # Highest glibc symbol version used must be <= 2.36 (the board).
 maxglibc=$(find "$WORK/stage$PREFIX" -name '*.so*' -type f -exec riscv64-linux-gnu-objdump -T {} + 2>/dev/null | grep -oE 'GLIBC_2\.[0-9]+' | sort -uV | tail -1)
