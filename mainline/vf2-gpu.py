@@ -145,6 +145,9 @@ if "pvr_vm_sync_for_device(struct pvr_vm_context *vm_ctx)\n{" not in t:
     p_vm.write_text(t.rstrip("\n") + "\n" + VM_SYNC)
     print("vf2-gpu: added pvr_vm_sync_for_device")
 patch("drivers/gpu/drm/imagination/pvr_job.c",
+      '#include "pvr_stream_defs.h"\n',
+      '#include "pvr_stream_defs.h"\n#include "pvr_vm.h"\n')
+patch("drivers/gpu/drm/imagination/pvr_job.c",
       "\tdrm_exec_init(&exec, DRM_EXEC_INTERRUPTIBLE_WAIT | DRM_EXEC_IGNORE_DUPLICATES, 0);\n",
       "\tfor (u32 i = 0; i < args->jobs.count; i++) {\n"
       "\t\tif (!i || job_data[i].job->ctx->vm_ctx != job_data[i - 1].job->ctx->vm_ctx)\n"
