@@ -43,6 +43,17 @@ PY
 fi
 
 # --- stage 1: host tools ---
+# mesa_clc needs SPIRV-Tools >= 2024.1; bookworm ships 2023.1, so build it for the host.
+if ! pkg-config --atleast-version=2024.1 SPIRV-Tools; then
+  SDK=vulkan-sdk-1.4.304.0
+  [ -d spirv-headers ] || git clone -q --depth 1 --branch $SDK https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
+  [ -d spirv-tools ] || git clone -q --depth 1 --branch $SDK https://github.com/KhronosGroup/SPIRV-Tools.git spirv-tools
+  step cmake-spirv cmake -S spirv-tools -B spirv-tools-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$WORK/native" -DCMAKE_INSTALL_LIBDIR=lib -DSPIRV-Headers_SOURCE_DIR="$WORK/spirv-headers" \
+    -DSPIRV_SKIP_TESTS=ON -DSPIRV_SKIP_EXECUTABLES=ON -DSPIRV_WERROR=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  step ninja-spirv ninja -C spirv-tools-build install
+  export PKG_CONFIG_PATH="$WORK/native/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+fi
 cat > native.ini <<INI
 [binaries]
 llvm-config = '/usr/bin/llvm-config-15'
