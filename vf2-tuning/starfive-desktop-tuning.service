@@ -1,0 +1,12 @@
+[Unit]
+Description=StarFive desktop CPU responsiveness tuning
+After=multi-user.target
+ConditionPathExists=/sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/starfive-desktop-tuning
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target

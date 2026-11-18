@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+# Keep the supported dynamic governor; correct the multi-second polling interval.
+policy=/sys/devices/system/cpu/cpufreq/policy0
+if [ -w "$policy/scaling_governor" ]; then
+    printf '%s' ondemand > "$policy/scaling_governor"
+    tunables=/sys/devices/system/cpu/cpufreq/ondemand
+    [ ! -w "$tunables/sampling_rate" ] || printf '%s' 50000 > "$tunables/sampling_rate"
+fi
