@@ -102,3 +102,10 @@ patch(cc, "static const struct riscv_nonstd_cache_ops ccache_mgmt_ops __initcons
       "\tccache_flush_range(start, len);\n}\n"
       "EXPORT_SYMBOL_GPL(sifive_l2_flush64_range);\n\n"
       "static const struct riscv_nonstd_cache_ops ccache_mgmt_ops __initconst = {")
+
+# StarFive's closed GL userspace (libpvr_dri_support, DDK 1.19) pairs the PowerVR
+# render node only with a display DRM driver named "starfive" (the vendor display
+# driver's name). Register mainline's DC8200 driver under that name so the
+# compositor gets GPU acceleration; the platform driver stays "verisilicon-dc".
+patch("drivers/gpu/drm/verisilicon/vs_drm.c", '#define DRIVER_NAME\t"verisilicon"\n',
+      '#define DRIVER_NAME\t"starfive"\t/* vendor GL userspace matches this name */\n')

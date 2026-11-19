@@ -1,0 +1,13 @@
+#!/bin/sh
+# Live PowerVR GPU load (btop has no PowerVR support). Ctrl-C to quit.
+S=/sys/kernel/debug/pvr/status
+[ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
+mountpoint -q /sys/kernel/debug || mount -t debugfs none /sys/kernel/debug
+[ -r $S ] || { echo "PowerVR vendor driver not loaded" >&2; exit 1; }
+while :; do
+  printf "\033[H\033[2J"
+  echo "PowerVR BXE-4-32  ($(uname -r))   $(date +%T)"
+  grep -E "Driver Status|Firmware Status|Server Errors|HWR Event|GPU Utilisation|^(2D|GEOM|3D|CDM) +Utilisation" $S
+  f=$(cat /sys/kernel/debug/clk/gpu_core/clk_rate 2>/dev/null); [ -n "$f" ] && echo "Core clock:      $((f/1000000)) MHz"
+  sleep "${1:-1}"
+done

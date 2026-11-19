@@ -1,0 +1,10 @@
+#!/bin/sh
+# Pick /etc/environment for the running GPU stack: StarFive's vendor PowerVR driver
+# (6.12, or mainline with the ported img-rogue driver) needs the vendor Mesa overrides;
+# the open driver must not have them.
+if [ -d /sys/bus/platform/drivers/pvrsrvkm ] || uname -r | grep -q -- "-starfive"; then
+  src=/etc/environment.vendor-6.12
+else
+  src=/etc/environment.mainline
+fi
+cmp -s "$src" /etc/environment || cp "$src" /etc/environment

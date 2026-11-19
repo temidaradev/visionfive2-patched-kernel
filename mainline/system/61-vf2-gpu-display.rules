@@ -1,0 +1,4 @@
+# StarFive vendor PowerVR (pvrsrvkm) exposes a DRM card without outputs. Compositors must
+# drive the display controller and only render on the GPU.
+SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="pvrsrvkm", TAG+="mutter-device-ignore"
+SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="verisilicon-dc", TAG+="mutter-device-preferred-primary"

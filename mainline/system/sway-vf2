@@ -1,0 +1,15 @@
+#!/bin/sh
+# Sway (Wayland) session for the VisionFive 2. Native Wayland for toolkits; Xwayland only on demand.
+export XDG_CURRENT_DESKTOP=sway XDG_SESSION_DESKTOP=sway XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1 GDK_BACKEND=wayland,x11 QT_QPA_PLATFORM="wayland;xcb" SDL_VIDEODRIVER=wayland,x11
+export _JAVA_AWT_WM_NONREPARENTING=1 ELECTRON_OZONE_PLATFORM_HINT=wayland
+# Drive the display controller, never the GPU card node (it has no outputs).
+for d in /dev/dri/by-path/platform-29400000.display-card; do [ -e "$d" ] && export WLR_DRM_DEVICES=$d; done
+if [ -d /sys/bus/platform/drivers/pvrsrvkm ]; then
+    # Vendor PowerVR GLES; if sway dies right away, fall back to the CPU renderer.
+    start=$(date +%s)
+    sway "$@" && exit 0
+    [ $(( $(date +%s) - start )) -lt 15 ] || exit 1
+fi
+export WLR_RENDERER=pixman WLR_NO_HARDWARE_CURSORS=1
+exec sway "$@"
