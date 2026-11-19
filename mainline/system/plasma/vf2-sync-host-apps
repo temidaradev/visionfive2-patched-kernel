@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Make the board's installed applications launchable from Plasma's menu.
+
+Plasma runs from its own root (/opt/plasma68-root), so its menu only sees the
+applications inside that root. For every application installed on the board that
+Plasma doesn't have itself, write a menu entry into Plasma's data directory whose
+Exec runs through vf2-host-run (which starts it on the host system, in the Plasma
+Wayland session). Runs as root from plasma-vf2-wayland at every Plasma login.
+"""
+import os
+import re
+from pathlib import Path
+
+ROOT = Path("/opt/plasma68-root")
+OUT = Path("/home/user/.local/share/plasma-vf2/applications")
+SOURCES = [Path("/usr/share/applications"), Path("/usr/local/share/applications"),
+           Path("/home/user/.local/share/applications")]
+UID = GID = 1000
+
+plasma_own = {p.name for p in (ROOT / "usr/share/applications").glob("*.desktop")}
+OUT.mkdir(parents=True, exist_ok=True)
+for old in OUT.glob("host-*.desktop"):
+    old.unlink()
+
+count = 0
+for src in SOURCES:
+    if not src.is_dir():
+        continue
+    for desktop in sorted(src.glob("*.desktop")):
+        if desktop.name in plasma_own:
+            continue
+        try:
+            text = desktop.read_text(errors="replace")
+        except OSError:
+            continue
+        if "[Desktop Entry]" not in text or re.search(r"^Type=(?!Application)", text, re.M):
+            continue
+        lines = []
+        for line in text.splitlines():
+            if line.startswith(("TryExec=", "DBusActivatable=")):
+                continue
+            if line.startswith("Exec="):
+                line = "Exec=vf2-host-run " + line[len("Exec="):]
+            lines.append(line)
+        target = OUT / f"host-{desktop.name}"
+        target.write_text("\n".join(lines) + "\n")
+        os.chown(target, UID, GID)
+        count += 1
+os.chown(OUT, UID, GID)
+print(f"vf2-sync-host-apps: {count} host applications added to the Plasma menu")

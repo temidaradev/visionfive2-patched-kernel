@@ -1,0 +1,11 @@
+#!/bin/sh
+# Inside the Plasma root: start an application installed on the board (host system)
+# as a transient unit of the user's systemd manager, connected to this Wayland session.
+# systemd-run checks the program path inside this root, so start the host-side helper
+# through /bin/sh, which exists on both sides. The host user bus is $XDG_RUNTIME_DIR/bus (the Plasma session has its own private bus).
+[ $# -gt 0 ] || { echo "usage: vf2-host-run <command> [args...]" >&2; exit 2; }
+exec env DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus" \
+    systemd-run --user --quiet --collect --no-block \
+    --setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" --setenv=DISPLAY="$DISPLAY" \
+    --setenv=XDG_SESSION_TYPE=wayland --setenv=XDG_CURRENT_DESKTOP=KDE \
+    -- /bin/sh -c 'exec /usr/local/bin/vf2-host-app "$@"' vf2-host-app "$@"

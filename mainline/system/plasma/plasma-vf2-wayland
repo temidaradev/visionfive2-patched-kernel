@@ -19,6 +19,13 @@ for path in /run/user/1000 /run/dbus /run/udev /run/systemd /home/user /tmp/.X11
     mount --bind "$path" "$root$path"
 done
 mount --bind /etc/machine-id "$root/etc/machine-id"
+# Board icon themes, read-only, for the host applications in Plasma's menu.
+for dir in icons pixmaps; do
+    mkdir -p "$root/opt/host-share/$dir"
+    mount --bind -o ro "/usr/share/$dir" "$root/opt/host-share/$dir"
+done
+# Menu entries for applications installed on the board (vf2-host-run).
+/usr/local/libexec/vf2-sync-host-apps || true
 
 settings=(
     HOME=/home/user USER=user LOGNAME=user SHELL=/bin/bash PATH=/usr/local/bin:/usr/bin:/bin
@@ -26,6 +33,7 @@ settings=(
     XDG_CONFIG_HOME=/home/user/.config/plasma-vf2
     XDG_CACHE_HOME=/home/user/.cache/plasma-vf2
     XDG_DATA_HOME=/home/user/.local/share/plasma-vf2
+    XDG_DATA_DIRS=/usr/local/share:/usr/share:/opt/host-share
     XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_TYPE=wayland
     DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     # Vendor PowerVR GL stack copied from the host (prepare-vendor-gpu.py).
@@ -39,6 +47,8 @@ settings=(
     KWIN_PERSISTENT_VBO=0 KWIN_NO_TIMER_QUERY=1 KWIN_USE_BUFFER_AGE=0
     KWIN_DRM_FORCE_GL_FINISH_PRESENT=1 KWIN_DRM_FORCE_GL_FINISH_MGPU_COPY=1
     VF2_DROP_RENDER_MASTER=1 VF2_BIND_WL_DRM=1 LD_PRELOAD=/opt/vf2-gpu/libgbm-trace.so
+    # Qt 6 is built for desktop GL; the vendor EGL is ES-only (see gbm-trace.c).
+    VF2_EGL_FORCE_GLES=1
     # Native Wayland for applications.
     QT_QPA_PLATFORM='wayland;xcb' QSG_RHI_BACKEND=opengl GDK_BACKEND=wayland,x11
     SDL_VIDEODRIVER=wayland,x11 MOZ_ENABLE_WAYLAND=1 ELECTRON_OZONE_PLATFORM_HINT=wayland

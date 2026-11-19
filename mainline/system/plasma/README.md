@@ -32,3 +32,29 @@ Install:
 If Plasma exits within 30 seconds, the launcher falls back to `sway-vf2`.
 
 Most of this work was done by Codex on the board (`~/Documents/plasma-port`).
+
+## Plasma shell on the GPU
+
+Qt 6 on Debian is built for desktop OpenGL, so Qt asks EGL for `EGL_OPENGL_BIT`
+configs. The vendor EGL only supports OpenGL ES, so no config matched and Plasma
+fell back to software rendering. With `VF2_EGL_FORCE_GLES=1`, `gbm-trace.c`
+rewrites those requests to ES configs and binds the ES API instead. Also remove
+any `SceneGraphBackend=software` left in `~/.config/plasma-vf2/kdeglobals` by an
+earlier fallback.
+
+Result: plasmashell renders on PowerVR and uses about 1% CPU at idle
+(previously 30–40% in software).
+
+## Board applications in Plasma's menu
+
+- At every login, `vf2-sync-host-apps` adds the board's installed applications
+  to Plasma's menu, in `~/.local/share/plasma-vf2/applications/host-*`.
+- Each entry runs through `vf2-host-run`, inside the Plasma root. It starts
+  `vf2-host-app` on the board as a transient unit of the user's systemd
+  manager, connected to the Plasma Wayland session.
+- The board's icon themes are shared read-only into the Plasma root at
+  `/opt/host-share`.
+
+Install `vf2-sync-host-apps` to `/usr/local/libexec/`, `vf2-host-app` to the
+board's `/usr/local/bin/`, and `vf2-host-run` to
+`/opt/plasma68-root/usr/local/bin/`.

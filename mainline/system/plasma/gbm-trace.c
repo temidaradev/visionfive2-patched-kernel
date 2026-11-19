@@ -218,3 +218,43 @@ int drmAuthMagic(int fd, drm_magic_t magic)
     fprintf(stderr, "VF2_DRM auth magic=%u failed on all card fds\n", magic);
     return r;
 }
+
+/* Qt 6 on Debian is built for desktop OpenGL, so it asks EGL for EGL_OPENGL_BIT configs
+ * and binds EGL_OPENGL_API. The vendor PowerVR EGL only provides OpenGL ES, so no
+ * config matches, window surfaces fail (EGL_BAD_CONFIG) and Qt Quick apps such as
+ * plasmashell render in software. With VF2_EGL_FORCE_GLES=1, ask for ES configs and
+ * bind the ES API instead; Qt detects the ES context from its version string. */
+#ifndef EGL_OPENGL_ES3_BIT_KHR
+#define EGL_OPENGL_ES3_BIT_KHR 0x0040
+#endif
+EGLBoolean eglChooseConfig(EGLDisplay dpy, const EGLint *attribs, EGLConfig *configs,
+                           EGLint size, EGLint *count)
+{
+    static EGLBoolean (*real_choose)(EGLDisplay, const EGLint *, EGLConfig *, EGLint, EGLint *);
+    if (!real_choose)
+        real_choose = dlsym(RTLD_NEXT, "eglChooseConfig");
+    if (!attribs || !getenv("VF2_EGL_FORCE_GLES"))
+        return real_choose(dpy, attribs, configs, size, count);
+    EGLint fixed[128];
+    int n = 0;
+    for (; attribs[n] != EGL_NONE && n < 124; n += 2) {
+        fixed[n] = attribs[n];
+        fixed[n + 1] = attribs[n + 1];
+        if (attribs[n] == EGL_RENDERABLE_TYPE && (attribs[n + 1] & EGL_OPENGL_BIT))
+            fixed[n + 1] = (attribs[n + 1] & ~EGL_OPENGL_BIT) | EGL_OPENGL_ES2_BIT | EGL_OPENGL_ES3_BIT_KHR;
+        if (attribs[n] == EGL_CONFORMANT && (attribs[n + 1] & EGL_OPENGL_BIT))
+            fixed[n + 1] = (attribs[n + 1] & ~EGL_OPENGL_BIT) | EGL_OPENGL_ES2_BIT;
+    }
+    fixed[n] = EGL_NONE;
+    return real_choose(dpy, fixed, configs, size, count);
+}
+
+EGLBoolean eglBindAPI(EGLenum api)
+{
+    static EGLBoolean (*real_bind)(EGLenum);
+    if (!real_bind)
+        real_bind = dlsym(RTLD_NEXT, "eglBindAPI");
+    if (api == EGL_OPENGL_API && getenv("VF2_EGL_FORCE_GLES"))
+        api = EGL_OPENGL_ES_API;
+    return real_bind(api);
+}

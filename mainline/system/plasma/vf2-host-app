@@ -1,0 +1,10 @@
+#!/bin/sh
+# On the host: environment for an application launched from Plasma by vf2-host-run.
+# /etc/environment carries the vendor PowerVR GL settings (see env-per-kernel).
+set -a
+. /etc/environment
+set +a
+export QT_QPA_PLATFORM="wayland;xcb" GDK_BACKEND=wayland,x11 MOZ_ENABLE_WAYLAND=1
+export SDL_VIDEODRIVER=wayland,x11 ELECTRON_OZONE_PLATFORM_HINT=wayland
+cd "$HOME" 2>/dev/null || true
+exec "$@"
