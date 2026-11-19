@@ -1,0 +1,51 @@
+#!/bin/bash
+# KDE Plasma 6 (separate rootfs /opt/plasma68-root) on Wayland with the StarFive
+# vendor PowerVR GPU. Runs as root from start-plasma-vf2-wayland; the session itself
+# runs as the user. The settings below are the ones verified in
+# ~/Documents/plasma-port/wayland-gpu/trials (card0-safe-wldrm): KWin composites with
+# OpenGL ES on PowerVR, HDMI output works, and Wayland clients render on the GPU.
+set -euo pipefail
+root=/opt/plasma68-root
+if [[ ${1:-} != --namespace ]]; then
+    exec unshare --mount --propagation private /bin/bash "$0" --namespace
+fi
+mount --rbind /dev "$root/dev"
+mount --make-rslave "$root/dev"
+mount -t proc proc "$root/proc"
+mount --rbind /sys "$root/sys"
+mount --make-rslave "$root/sys"
+for path in /run/user/1000 /run/dbus /run/udev /run/systemd /home/user /tmp/.X11-unix; do
+    mkdir -p "$root$path"
+    mount --bind "$path" "$root$path"
+done
+mount --bind /etc/machine-id "$root/etc/machine-id"
+
+settings=(
+    HOME=/home/user USER=user LOGNAME=user SHELL=/bin/bash PATH=/usr/local/bin:/usr/bin:/bin
+    LANG=C.UTF-8 XDG_RUNTIME_DIR=/run/user/1000
+    XDG_CONFIG_HOME=/home/user/.config/plasma-vf2
+    XDG_CACHE_HOME=/home/user/.cache/plasma-vf2
+    XDG_DATA_HOME=/home/user/.local/share/plasma-vf2
+    XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_TYPE=wayland
+    DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+    # Vendor PowerVR GL stack copied from the host (prepare-vendor-gpu.py).
+    LD_LIBRARY_PATH=/opt/vf2-gpu/lib LIBGL_DRIVERS_PATH=/opt/vf2-gpu/dri
+    MESA_LOADER_DRIVER_OVERRIDE=pvr __EGL_VENDOR_LIBRARY_FILENAMES=/opt/vf2-gpu/50_vf2.json
+    # KWin: render through card0 (the vendor EGL marks RGB formats external-only on the
+    # render node), drop master on that early fd, bind legacy wl_drm for vendor clients.
+    KWIN_COMPOSE=O2ES KWIN_DISABLE_VULKAN=1
+    KWIN_DRM_DEVICES=/dev/dri/card0 KWIN_RENDER_NODES=/dev/dri/card0
+    KWIN_DRM_USE_MODIFIERS=1 KWIN_DRM_PREFER_COLOR_DEPTH=24 KWIN_FORCE_SW_CURSOR=1
+    KWIN_PERSISTENT_VBO=0 KWIN_NO_TIMER_QUERY=1 KWIN_USE_BUFFER_AGE=0
+    KWIN_DRM_FORCE_GL_FINISH_PRESENT=1 KWIN_DRM_FORCE_GL_FINISH_MGPU_COPY=1
+    VF2_DROP_RENDER_MASTER=1 VF2_BIND_WL_DRM=1 LD_PRELOAD=/opt/vf2-gpu/libgbm-trace.so
+    # Native Wayland for applications.
+    QT_QPA_PLATFORM='wayland;xcb' QSG_RHI_BACKEND=opengl GDK_BACKEND=wayland,x11
+    SDL_VIDEODRIVER=wayland,x11 MOZ_ENABLE_WAYLAND=1 ELECTRON_OZONE_PLATFORM_HINT=wayland
+    XCURSOR_THEME=breeze_cursors XCURSOR_SIZE=24
+)
+for key in XDG_SESSION_ID XDG_SEAT XDG_VTNR; do
+    [[ -z ${!key:-} ]] || settings+=("$key=${!key}")
+done
+exec chroot "$root" /usr/sbin/runuser -u user -- /usr/bin/env -i --chdir=/home/user "${settings[@]}" \
+    /usr/bin/dbus-run-session -- /usr/bin/startplasma-wayland

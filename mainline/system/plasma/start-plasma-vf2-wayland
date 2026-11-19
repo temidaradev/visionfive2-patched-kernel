@@ -1,0 +1,10 @@
+#!/bin/sh
+# Main desktop: KDE Plasma 6 on Wayland with the PowerVR GPU (see plasma-vf2-wayland).
+# Fallback: if Plasma fails to come up (exits within 30 s), start the Sway session instead.
+start=$(date +%s)
+sudo -n --preserve-env=XDG_SESSION_ID,XDG_SEAT,XDG_VTNR /usr/local/libexec/plasma-vf2-wayland && exit 0
+if [ $(( $(date +%s) - start )) -lt 30 ]; then
+    logger -t plasma-vf2 "Plasma Wayland failed to start; falling back to Sway"
+    exec /usr/local/bin/sway-vf2
+fi
+exit 1

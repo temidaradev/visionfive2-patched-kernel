@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Plasma (Wayland, GPU)
+Comment=KDE Plasma 6 on Wayland with the StarFive PowerVR GPU
+Exec=/usr/local/bin/start-plasma-vf2-wayland
+TryExec=/usr/local/bin/start-plasma-vf2-wayland
+Type=Application
+DesktopNames=KDE
