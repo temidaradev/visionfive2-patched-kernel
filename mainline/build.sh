@@ -12,8 +12,23 @@ if [ ! -d linux ]; then
 fi
 cd linux
 git -c user.name=build -c user.email=build@localhost am -q --3way "$HERE"/patches/*.mbox
+# GPU: StarFive's vendor PowerVR driver (img-rogue), ported to this kernel. It works
+# with the vendor GL/Vulkan userspace already on the board; the open drm/imagination
+# driver can't render on this core with current Mesa.
+export VF2_GPU=vendor
+VENDOR_REV=4cecf169f38eb94b40e307f5f870055e4d9d64f1   # JH7110_VF2_6.12_v6.0.0
+if [ ! -d ../vendor-img ]; then
+  git init -q ../vendor-img
+  git -C ../vendor-img remote add origin https://github.com/starfive-tech/linux.git
+  git -C ../vendor-img sparse-checkout set drivers/gpu/drm/img
+  git -C ../vendor-img fetch -q --depth 1 --filter=blob:none origin "$VENDOR_REV"
+  git -C ../vendor-img checkout -q FETCH_HEAD
+fi
+rm -rf drivers/gpu/drm/img && cp -a ../vendor-img/drivers/gpu/drm/img drivers/gpu/drm/img
+python3 "$HERE/img/port.py" .
+python3 "$HERE/img/vf2-img.py"
 python3 "$HERE/vf2-gpu.py"
-git -c user.name=build -c user.email=build@localhost commit -qam "vf2: GPU device tree and power fixups"
+git add -A && git -c user.name=build -c user.email=build@localhost commit -qm "vf2: vendor GPU driver and fixups"
 make -s defconfig
 scripts/kconfig/merge_config.sh -m -O . .config "$HERE/vf2-hdmi.config" >/dev/null
 make -s olddefconfig

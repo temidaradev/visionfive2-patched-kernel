@@ -16,35 +16,37 @@ drivers, and the copy in `patches/` is the one applied at build time.
 | | GPU acceleration: blocked by CPU cache coherency, see below |
 | kexec, for live test-boots of later kernels | |
 
-## GPU: firmware and Vulkan work; rendering hangs (Mesa doesn't support this core yet)
+## GPU: StarFive's vendor driver, ported to 7.4
 
-Status on the PowerVR BXE-4-32 (BVNC 36.50.54.182), November 2026:
+The GPU runs StarFive's vendor PowerVR driver (`img-rogue`, DDK 1.19, from the
+6.12 BSP), ported to this kernel, with the vendor GL/Vulkan userspace already on
+the board. The open `drm/imagination` driver is disabled: its firmware boots
+here, but current Mesa can't render on this core (36.50.54.182).
 
-| Layer | Status |
-|---|---|
-| Kernel driver + firmware boot | ✅ boots on the first try (`vf2-gpu.py`) |
-| Vulkan device (`mesa/`) | ✅ `vulkaninfo`: *PowerVR B-Series BXE-4-32 MC1*, Imagination open-source Mesa driver, Vulkan 1.2 |
-| OpenGL ES via Zink | ✅ creates contexts: *zink Vulkan 1.2 (PowerVR B-Series BXE-4-32 MC1)*, OpenGL ES 3.1 |
-| Rendering | ❌ the first geometry job hangs the GPU ("Guilty lockup, Data Master=Geometry") |
+| glmark2 (off-screen) | vendor 6.12 | 7.4 + ported driver |
+|---|---|---|
+| GL | PowerVR BXE-4-32, OpenGL ES 3.2 build 1.19 | same |
+| build / texture / phong / refract FPS | 867 / 757 / 462 / 38 | 695 / 743 / 412 / 38 |
+| score | 531 | 472 |
 
-What `vf2-gpu.py` changes in the kernel driver for the JH7110:
+- `img/port.py` adapts the driver to 7.4 APIs: `__assign_str`, `pfn_t`, timer
+  renames, `dma_fence_ops`, module namespaces and kbuild.
+- It also builds the driver as a module (`pvrsrvkm.ko`). Built in, it would
+  probe before `/lib/firmware` is mounted, because mainline boots without an
+  initramfs.
+- `img/vf2-img.py` adds the kernel-side hooks the driver expects:
+  - `starfive_pmu_hw_event_turn_off_mask()`, plus the `soc/starfive/jh7110_pmu.h` header;
+  - `sifive_l2_flush64_range()`;
+  - the vendor GPU device-tree node;
+  - the Kconfig and Makefile hooks.
+- `build.sh` fetches `drivers/gpu/drm/img` from StarFive's tree at the commit
+  the 6.12 kernel was built from.
+- Firmware: `rgx.fw.36.50.54.182` and `rgx.sh.36.50.54.182` from the vendor image.
+- On the board, `env-per-kernel` applies the vendor Mesa environment
+  (`MESA_LOADER_DRIVER_OVERRIDE=pvr`, ...) whenever `pvrsrvkm` is present.
 
-- adds the GPU to the device tree (simple-pm-bus for the extra clocks, both resets, 594 MHz core clock) and clears the PMU hardware turn-off events, as the vendor DDK does;
-- marks the GPU `dma-noncoherent`. The U74 cores can't map memory uncached (no Svpbmt), so every write-combined mapping drm/imagination relies on is really cached. It therefore writes back and invalidates firmware objects at each CPU<->firmware handoff and syncs all user BOs at job submit;
-- **flushes the MIPS firmware page tables.** They were written through a cached vmap and never flushed, which is why the firmware almost never booted before.
-
-Why rendering hangs: Mesa marks only 36.52.104.182 and 36.53.104.796 as working
-(`pvr_device_is_conformant`). It has a device description for 36.50.54.182 but
-no working rendering on it yet. A hang on the first geometry job is typical of
-command streams that are slightly wrong for an untested core. Fixing it needs
-work in Mesa's imagination driver, comparing against the vendor DDK.
-
-Also not done yet: after a GPU hang, the hard-reset path doesn't run the cache
-syncs, so the firmware doesn't come back (device lost until reboot).
-
-Use the vendor 6.12 kernel for GPU acceleration. On mainline, run `vulkaninfo`
-or `pvr-gl <app>` to test new Mesa builds. The user must be in the `render` and
-`video` groups.
+`vf2-gpu.py` and `mesa/` hold the open-driver work (cache coherency fixes,
+Mesa build). Set `VF2_GPU` to anything but `vendor` to build that instead.
 
 ## Install (on the board)
 

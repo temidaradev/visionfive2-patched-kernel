@@ -6,6 +6,7 @@ The JH7110 GPU also needs its APB, RTC, bus and AXI clocks and a second reset,
 so a simple-pm-bus parent turns on the extra clocks, and the driver takes its
 resets as an array.
 """
+import os
 import sys
 from pathlib import Path
 
@@ -182,6 +183,10 @@ if "pvr_vm_mips_sync_pt(" not in t:
     t = t.replace(old, "\tpvr_vm_mips_sync_pt(pvr_dev, mips_data);\n" + old)
     p_mips.write_text(t)
     print("vf2-gpu: patched drivers/gpu/drm/imagination/pvr_vm_mips.c (MIPS PT sync)")
+
+if os.environ.get("VF2_GPU") == "vendor":
+    print("vf2-gpu: VF2_GPU=vendor, skipping the open-driver GPU node")
+    sys.exit(0)
 
 dts = Path("arch/riscv/boot/dts/starfive/jh7110-starfive-visionfive-2-v1.3b.dts")
 node = """
